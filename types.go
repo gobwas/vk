@@ -47,3 +47,9 @@ type RequestParam struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
+
+type rawAccess struct {
+	Token   string `json:"access_token"`
+	Expires int    `json:"expires_in"`
+	UserID  int    `json:"user_id"`
+}

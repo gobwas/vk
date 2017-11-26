@@ -3,8 +3,8 @@ package vk
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -24,12 +24,6 @@ type AccessToken struct {
 	Token   string
 	Expires time.Time
 	UserID  int
-}
-
-type rawAccess struct {
-	Token   string `json:"access_token"`
-	Expires int    `json:"expires_in"`
-	UserID  int    `json:"user_id"`
 }
 
 type Auth struct {
@@ -78,13 +72,16 @@ func (a *Auth) Authorize(ctx context.Context) (*AccessToken, error) {
 		return nil, err
 	}
 
-	return parseAccessTokenResponse(resp)
+	return parseAccessTokenResponse(resp.Body)
 }
 
-func parseAccessTokenResponse(resp *http.Response) (*AccessToken, error) {
+func parseAccessTokenResponse(resp io.Reader) (*AccessToken, error) {
+	bts, err := ioutil.ReadAll(resp)
+	if err != nil {
+		return nil, err
+	}
 	var acc rawAccess
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(&acc); err != nil {
+	if err := acc.UnmarshalJSON(bts); err != nil {
 		return nil, err
 	}
 
