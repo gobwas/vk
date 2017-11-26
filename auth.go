@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gobwas/vk/httputil"
+	"github.com/gobwas/vk/internal/httputil"
 )
 
 var DefaultRedirectHost = "127.0.0.1"

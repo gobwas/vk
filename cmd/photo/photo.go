@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/gobwas/vk"
-	"github.com/gobwas/vk/httputil"
-	"github.com/gobwas/vk/syncutil"
+	"github.com/gobwas/vk/internal/httputil"
+	"github.com/gobwas/vk/internal/syncutil"
 	"github.com/vbauerster/mpb"
 	"github.com/vbauerster/mpb/decor"
 )

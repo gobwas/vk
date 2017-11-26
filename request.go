@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gobwas/vk/httputil"
+	"github.com/gobwas/vk/internal/httputil"
 )
 
 type Authorizer interface {
