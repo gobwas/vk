@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/gobwas/vk/httputil"
 )
 
 type Authorizer interface {
@@ -12,7 +14,8 @@ type Authorizer interface {
 }
 
 type request struct {
-	query url.Values
+	method string
+	query  url.Values
 }
 
 type RequestOption func(*request)
@@ -23,7 +26,7 @@ func WithParam(key, value string) RequestOption {
 	}
 }
 
-func WithAccess(access *Access) RequestOption {
+func WithAccessToken(access *AccessToken) RequestOption {
 	return func(r *request) {
 		r.query.Set("access_token", access.Token)
 	}
@@ -31,21 +34,14 @@ func WithAccess(access *Access) RequestOption {
 
 func Request(ctx context.Context, method string, options ...RequestOption) ([]byte, error) {
 	req := &request{
-		query: make(url.Values),
+		method: method,
+		query:  make(url.Values),
 	}
 	req.query.Set("v", version)
 	for _, opt := range options {
 		opt(req)
 	}
-
-	u, err := url.Parse("https://api.vk.com/method")
-	if err != nil {
-		return nil, err
-	}
-	u.Path += "/" + method
-	u.RawQuery = req.query.Encode()
-
-	r, err := http.NewRequest("GET", u.String(), nil)
+	r, err := http.NewRequest("GET", req.url(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,10 +50,18 @@ func Request(ctx context.Context, method string, options ...RequestOption) ([]by
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if err := checkResponseStatus(resp); err != nil {
+	if err := httputil.CheckResponseStatus(resp); err != nil {
 		return nil, err
 	}
-
 	return ioutil.ReadAll(resp.Body)
+}
+
+func (req *request) url() string {
+	u, err := url.Parse("https://api.vk.com/method")
+	if err != nil {
+		panic("constant url is invalid: " + err.Error())
+	}
+	u.Path += "/" + req.method
+	u.RawQuery = req.query.Encode()
+	return u.String()
 }

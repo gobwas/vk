@@ -14,11 +14,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gobwas/vk/httputil"
 )
 
 var DefaultRedirectHost = "127.0.0.1"
 
-type Access struct {
+type AccessToken struct {
 	Token   string
 	Expires time.Time
 	UserID  int
@@ -40,22 +42,17 @@ type Auth struct {
 	RedirectPort int
 }
 
-func (a *Auth) Authorize(ctx context.Context) (*Access, error) {
+func (a *Auth) Authorize(ctx context.Context) (*AccessToken, error) {
 	redirect := make(chan requestAndError, 1)
 	redirectPath, err := a.redirectServer(redirect)
 	if err != nil {
 		return nil, err
 	}
 
-	auth, err := a.authPath(redirectPath)
-	if err != nil {
-		return nil, err
-	}
 	// Open a web browser to authorize an app.
-	if err := browse(ctx, auth); err != nil {
+	if err := browse(ctx, a.authPath(redirectPath)); err != nil {
 		return nil, err
 	}
-
 	req, err := waitRedirect(ctx, redirect)
 	if err != nil {
 		return nil, err
@@ -65,39 +62,26 @@ func (a *Auth) Authorize(ctx context.Context) (*Access, error) {
 		return nil, err
 	}
 
-	access, err := a.accessTokenPath(redirectPath, code)
+	access, err := http.NewRequest(
+		"GET", a.accessTokenPath(redirectPath, code), nil,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	accessReq, err := http.NewRequest("GET", access, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.DefaultClient.Do(accessReq.WithContext(ctx))
+	resp, err := http.DefaultClient.Do(access.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if err := checkResponseStatus(resp); err != nil {
+	if err := httputil.CheckResponseStatus(resp); err != nil {
 		return nil, err
 	}
 
 	return parseAccessTokenResponse(resp)
 }
 
-func checkResponseStatus(resp *http.Response) error {
-	if resp.StatusCode == http.StatusOK {
-		return nil
-	}
-	return fmt.Errorf(
-		"bad status code: %d %q",
-		resp.StatusCode, resp.Status,
-	)
-}
-
-func parseAccessTokenResponse(resp *http.Response) (*Access, error) {
+func parseAccessTokenResponse(resp *http.Response) (*AccessToken, error) {
 	var acc rawAccess
 	decoder := json.NewDecoder(resp.Body)
 	if err := decoder.Decode(&acc); err != nil {
@@ -106,7 +90,7 @@ func parseAccessTokenResponse(resp *http.Response) (*Access, error) {
 
 	expires := time.Now().Add(time.Second * time.Duration(acc.Expires))
 
-	return &Access{
+	return &AccessToken{
 		Token:   acc.Token,
 		UserID:  acc.UserID,
 		Expires: expires,
@@ -118,10 +102,10 @@ type requestAndError struct {
 	err error
 }
 
-func (a *Auth) authPath(redirect string) (string, error) {
+func (a *Auth) authPath(redirect string) string {
 	auth, err := url.Parse("https://oauth.vk.com/authorize")
 	if err != nil {
-		return "", err
+		panic("constant url is invalid: " + err.Error())
 	}
 	query := url.Values{
 		"v":             []string{version},
@@ -133,13 +117,13 @@ func (a *Auth) authPath(redirect string) (string, error) {
 		"response_type": []string{"code"},
 	}
 	auth.RawQuery = query.Encode()
-	return auth.String(), nil
+	return auth.String()
 }
 
-func (a *Auth) accessTokenPath(redirect, code string) (string, error) {
+func (a *Auth) accessTokenPath(redirect, code string) string {
 	access, err := url.Parse("https://oauth.vk.com/access_token")
 	if err != nil {
-		return "", err
+		panic("constant url is invalid: " + err.Error())
 	}
 	query := url.Values{
 		"client_id":     []string{a.ClientID},
@@ -148,7 +132,7 @@ func (a *Auth) accessTokenPath(redirect, code string) (string, error) {
 		"code":          []string{code},
 	}
 	access.RawQuery = query.Encode()
-	return access.String(), nil
+	return access.String()
 }
 
 func (a *Auth) redirectServer(redirect chan<- requestAndError) (uri string, err error) {
