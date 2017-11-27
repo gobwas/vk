@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gobwas/vk"
+	"github.com/gobwas/vk/cli"
 	"github.com/gobwas/vk/internal/httputil"
 	"github.com/gobwas/vk/internal/syncutil"
 	"github.com/vbauerster/mpb"
@@ -46,14 +47,6 @@ var (
 		"owner_id", "",
 		"albums owner id (empty for your id)",
 	)
-	rateLimit = flag.Int(
-		"rate_limit", 3,
-		"number of requests per rate_interval",
-	)
-	rateInterval = flag.Duration(
-		"rate_interval", time.Second,
-		"interval for limiting request to rate_limit",
-	)
 	dest = flag.String(
 		"dest", getDefaultDest("vkphoto"),
 		"destination root dir for photos",
@@ -79,12 +72,13 @@ func main() {
 
 	ctx := context.Background()
 
-	auth := vk.Auth{
+	app := vk.App{
 		ClientID:     *clientID,
 		ClientSecret: *clientSecret,
 		Scope:        vk.ScopePhotos,
 	}
-	access, err := auth.Authorize(ctx)
+
+	access, err := cli.Authorize(ctx, app)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,7 +107,7 @@ func main() {
 
 	subctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	limiter := syncutil.NewLimiter(subctx, *rateInterval, *rateLimit)
+	limiter := syncutil.NewLimiter(subctx, time.Second, 3)
 
 	maxWidth := maxAlbumTitleWidth(albums)
 	for _, album := range albums {
