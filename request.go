@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/gobwas/vk/internal/httputil"
 )
@@ -18,29 +19,53 @@ type request struct {
 	query  url.Values
 }
 
-type RequestOption func(*request)
+type QueryOption func(url.Values)
 
-func WithParam(key, value string) RequestOption {
-	return func(r *request) {
-		r.query.Add(key, value)
+func WithOptions(options []QueryOption) QueryOption {
+	return func(query url.Values) {
+		for _, option := range options {
+			option(query)
+		}
 	}
 }
 
-func WithAccessToken(access *AccessToken) RequestOption {
-	return func(r *request) {
-		r.query.Set("access_token", access.Token)
+func WithQuery(source url.Values) QueryOption {
+	return func(query url.Values) {
+		for key, values := range source {
+			for _, value := range values {
+				query.Add(key, value)
+			}
+		}
 	}
 }
 
-func Request(ctx context.Context, method string, options ...RequestOption) ([]byte, error) {
+func WithParam(key, value string) QueryOption {
+	return func(query url.Values) {
+		query.Add(key, value)
+	}
+}
+
+func WithOffset(offset int) QueryOption {
+	return func(query url.Values) {
+		query.Set("offset", strconv.Itoa(offset))
+	}
+}
+
+func WithAccessToken(access *AccessToken) QueryOption {
+	return func(query url.Values) {
+		query.Set("access_token", access.Token)
+	}
+}
+
+func Request(ctx context.Context, method string, options ...QueryOption) ([]byte, error) {
 	req := &request{
 		method: method,
 		query:  make(url.Values),
 	}
 	req.query.Set("v", version)
-	for _, opt := range options {
-		opt(req)
-	}
+
+	WithOptions(options)(req.query)
+
 	r, err := http.NewRequest("GET", req.url(), nil)
 	if err != nil {
 		return nil, err
@@ -54,6 +79,17 @@ func Request(ctx context.Context, method string, options ...RequestOption) ([]by
 		return nil, err
 	}
 	return ioutil.ReadAll(resp.Body)
+}
+
+func StripResponse(p []byte) ([]byte, error) {
+	var response Response
+	if err := response.UnmarshalJSON(p); err != nil {
+		return nil, err
+	}
+	if err := response.Error(); err != nil {
+		return nil, err
+	}
+	return response.Body, nil
 }
 
 func (req *request) url() string {

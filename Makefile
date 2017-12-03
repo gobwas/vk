@@ -1,7 +1,9 @@
 all: photo posts
 
-generate:
-	go generate
+GENERATE_FILES=$(shell fgrep -l -r "go:generate easyjson" $(PWD) | grep ".*\.go")
+
+generate: clean
+	easyjson -all $(GENERATE_FILES)
 
 clean:
 	find . -name "*_easyjson.go" -delete
