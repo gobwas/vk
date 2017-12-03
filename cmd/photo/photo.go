@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/ring"
 	"context"
 	"flag"
 	"fmt"
@@ -55,6 +56,41 @@ var (
 		"parallelism", 32,
 		"number of parallel downloadings",
 	)
+	withWall = flag.Bool(
+		"wall", true,
+		"download photos from internal 'wall' album",
+	)
+	withSaved = flag.Bool(
+		"saved", true,
+		"download photos from internal 'saved' album",
+	)
+	withProfile = flag.Bool(
+		"profile", true,
+		"download photos from internal 'profile' album",
+	)
+	withTags = flag.Bool(
+		"tags", true,
+		"download photos from internal 'tags' album",
+	)
+)
+
+var (
+	wallAlbum = vk.PhotoAlbum{
+		ID:    -1,
+		Title: "wall",
+	}
+	savedAlbum = vk.PhotoAlbum{
+		ID:    -2,
+		Title: "saved",
+	}
+	profileAlbum = vk.PhotoAlbum{
+		ID:    -3,
+		Title: "profile",
+	}
+	tagsAlbum = vk.PhotoAlbum{
+		ID:    -4,
+		Title: "tags",
+	}
 )
 
 func main() {
@@ -92,11 +128,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if *withWall {
+		albums = append(albums, wallAlbum)
+	}
+	if *withSaved {
+		albums = append(albums, savedAlbum)
+	}
+	if *withProfile {
+		albums = append(albums, profileAlbum)
+	}
+	if *withTags {
+		albums = append(albums, tagsAlbum)
+	}
 
 	fmt.Fprintf(os.Stderr, "ready to store photos at %s\n", *dest)
 
+	ringLogger := newRingLogger(24)
+	log.SetOutput(ringLogger)
+	log.SetFlags(0)
+
 	bars := sync.Map{}
-	progress := mpb.New()
+	progress := mpb.New(
+		mpb.Output(os.Stderr),
+		mpb.OutputInterceptors(ringLogger.Interceptor()),
+	)
 
 	var wg sync.WaitGroup
 	work := make(chan PhotoFromAlbum, 100)
@@ -109,20 +164,46 @@ func main() {
 	defer cancel()
 	limiter := syncutil.NewLimiter(subctx, time.Second, 3)
 
+	photoGetter := &PhotoGetter{
+		Access:  access,
+		Limiter: limiter,
+	}
+
 	maxWidth := maxAlbumTitleWidth(albums)
 	for _, album := range albums {
-		// TODO: could put photos directly to a channel. Will work for large
-		// albums.
-		photos, err := getPhotos(ctx, limiter, access, *ownerID, strconv.Itoa(album.ID))
+		var photos []vk.Photo
+		if album.ID == -4 {
+			// Tags album.
+			photos, err = photoGetter.GetUserPhotos(ctx, *ownerID)
+		} else {
+			var albumID string
+			switch album.ID {
+			case -1:
+				albumID = "wall"
+			case -2:
+				albumID = "saved"
+			case -3:
+				albumID = "profile"
+			default:
+				albumID = strconv.Itoa(album.ID)
+			}
+			// TODO: could put photos directly to a channel. Will work for large
+			// albums.
+			photos, err = photoGetter.GetAlbumPhotos(ctx, *ownerID, albumID)
+		}
 		if err != nil {
-			log.Fatal(err)
+			log.Printf(
+				"get photos for album %q (%d) error: %v",
+				album.Title, album.ID, err,
+			)
+			continue
 		}
 		if len(photos) == 0 {
 			continue
 		}
 		// Prepare directory for this album.
 		if err := os.MkdirAll(getAlbumDir(*dest, album), os.ModePerm); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 
 		bar := progress.AddBar(int64(len(photos)),
@@ -169,10 +250,13 @@ type PhotoFromAlbum struct {
 func processPhotoFromAlbum(ctx context.Context, wg *sync.WaitGroup, bars *sync.Map, dest string, work <-chan PhotoFromAlbum) {
 	defer wg.Done()
 	for pa := range work {
-		if err := download(ctx, dest, pa.Photo, pa.Album); err != nil {
-			log.Fatal(err)
+		largest := getLargestSize(pa.Photo.Sizes)
+		if err := download(ctx, dest, pa.Photo, largest, pa.Album); err != nil {
+			log.Printf(
+				"download %s (from %q album) error: %v",
+				largest.Src, pa.Album.Title, err,
+			)
 		}
-
 		bar, _ := bars.Load(pa.Album.ID)
 		bar.(*mpb.Bar).Increment()
 	}
@@ -186,11 +270,9 @@ func getAlbumDir(root string, album vk.PhotoAlbum) string {
 	return filepath.Clean(fmt.Sprintf("%s/%s", root, albumID))
 }
 
-func download(ctx context.Context, dir string, photo vk.Photo, album vk.PhotoAlbum) (err error) {
-	largest := getLargestSize(photo.Sizes)
-
+func download(ctx context.Context, dir string, photo vk.Photo, size vk.PhotoSize, album vk.PhotoAlbum) (err error) {
 	photoID := strconv.Itoa(photo.ID)
-	ext := path.Ext(largest.Src)
+	ext := path.Ext(size.Src)
 
 	filepath := filepath.Clean(fmt.Sprintf("%s/%s%s", getAlbumDir(dir, album), photoID, ext))
 
@@ -200,7 +282,7 @@ func download(ctx context.Context, dir string, photo vk.Photo, album vk.PhotoAlb
 	}
 	defer file.Close()
 
-	req, err := http.NewRequest("GET", largest.Src, nil)
+	req, err := http.NewRequest("GET", size.Src, nil)
 	if err != nil {
 		return err
 	}
@@ -237,7 +319,28 @@ func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as 
 	return albums.Items, nil
 }
 
-func getPhotos(ctx context.Context, limiter *syncutil.Limiter, access *vk.AccessToken, ownerID, albumID string) (ps []vk.Photo, err error) {
+type PhotoGetter struct {
+	Limiter *syncutil.Limiter
+	Access  *vk.AccessToken
+}
+
+func (pg *PhotoGetter) GetUserPhotos(ctx context.Context, userID string) ([]vk.Photo, error) {
+	return pg.get(ctx, "photos.getUserPhotos",
+		vk.WithParam("user_id", userID),
+		vk.WithParam("sort", "1"), // Chronological order.
+	)
+}
+
+func (pg *PhotoGetter) GetAlbumPhotos(ctx context.Context, ownerID, albumID string) ([]vk.Photo, error) {
+	return pg.get(ctx, "photos.get",
+		vk.WithParam("owner_id", ownerID),
+		vk.WithParam("album_id", albumID),
+		vk.WithParam("rev", "0"),         // Chronological order.
+		vk.WithParam("photo_sizes", "1"), // Special sizes format.
+	)
+}
+
+func (pg *PhotoGetter) get(ctx context.Context, method string, queryOptions ...vk.QueryOption) (ret []vk.Photo, err error) {
 	const (
 		maxCount        = 1000
 		maxCountStr     = "1000"
@@ -252,46 +355,42 @@ func getPhotos(ctx context.Context, limiter *syncutil.Limiter, access *vk.Access
 			bts []byte
 			err error
 		)
-		limiter.Do(func() {
-			bts, err = vk.Request(ctx, "photos.get",
-				vk.WithAccessToken(access),
-				vk.WithParam("owner_id", ownerID),
-				vk.WithParam("album_id", albumID),
-				vk.WithParam("offset", strconv.Itoa(offset)),
+		pg.Limiter.Do(func() {
+			bts, err = vk.Request(ctx, method,
+				vk.WithOptions(queryOptions),
+				vk.WithAccessToken(pg.Access),
+				vk.WithOffset(offset),
 				vk.WithParam("count", maxCountStr),
-				vk.WithParam("rev", "0"),         // Chronological order.
 				vk.WithParam("photo_sizes", "1"), // Special sizes format.
 			)
 		})
 		if err != nil {
-			return ps, err
+			return ret, err
 		}
-		var response vk.Response
-		if err := response.UnmarshalJSON(bts); err != nil {
-			return ps, err
-		}
-		if err := response.Error(); err != nil {
-			if err.Temporary() {
+		bts, err = vk.StripResponse(bts)
+		if err != nil {
+			if vkErr, ok := err.(*vk.Error); ok && vkErr.Temporary() {
 				time.Sleep(cooldown)
 				cooldown *= 2
 				continue
 			}
-			return ps, err
+			return ret, err
 		}
 		cooldown = defaultCoolDown
 
 		var photos vk.Photos
-		if err := photos.UnmarshalJSON(response.Body); err != nil {
-			return ps, err
+		if err := photos.UnmarshalJSON(bts); err != nil {
+			return ret, err
 		}
-		ps = append(ps, photos.Items...)
+
+		ret = append(ret, photos.Items...)
 		if photos.Count < maxCount {
+			// No need to repeat request.
 			break
 		}
 		offset += photos.Count
 	}
-
-	return ps, nil
+	return ret, nil
 }
 
 func getLargestSize(sizes []vk.PhotoSize) (max vk.PhotoSize) {
@@ -308,4 +407,37 @@ func getLargestSize(sizes []vk.PhotoSize) (max vk.PhotoSize) {
 		}
 	}
 	return max
+}
+
+type ringLogger struct {
+	mu   sync.Mutex
+	ring *ring.Ring
+}
+
+func newRingLogger(n int) *ringLogger {
+	return &ringLogger{
+		ring: ring.New(n),
+	}
+}
+
+func (r *ringLogger) Write(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	next := r.ring.Next()
+	next.Value = string(p)
+	r.ring = r.ring.Move(1)
+	return len(p), nil
+}
+
+func (r *ringLogger) Interceptor() func(io.Writer) {
+	return func(out io.Writer) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.ring.Do(func(v interface{}) {
+			if v == nil {
+				return
+			}
+			out.Write([]byte(v.(string)))
+		})
+	}
 }

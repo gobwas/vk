@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"os/exec"
@@ -16,55 +15,40 @@ import (
 
 func Authorize(ctx context.Context, app vk.App) (token *vk.AccessToken, err error) {
 	redirect := make(chan requestAndError, 1)
-	redirectPath, err := redirectServer(redirect)
+	redirectPath, err := redirectServer(ctx, redirect)
 	if err != nil {
 		return nil, err
 	}
+	auth := app.AuthPathCode(redirectPath, vk.WithParam(
+		"display", "page",
+	))
 	// Open a web browser to authorize an app.
-	if err := browse(ctx, app.AuthorizePath(redirectPath)); err != nil {
+	if err := browse(ctx, auth); err != nil {
 		return nil, err
 	}
 	req, err := waitRedirect(ctx, redirect)
 	if err != nil {
 		return nil, err
 	}
-	code, err := vk.CodeFromParams(req.URL.Query())
+	code, err := vk.CodeFromQuery(req.URL.Query())
 	if err != nil {
 		return nil, err
 	}
 	return app.Authorize(ctx, redirectPath, code)
 }
 
-func redirectServer(redirect chan<- requestAndError) (uri string, err error) {
+func redirectServer(ctx context.Context, redirect chan<- requestAndError) (uri string, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:")
 	if err != nil {
 		return "", err
 	}
-
-	go func() {
+	go http.Serve(ln, http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		defer ln.Close()
-
-		conn, err := ln.Accept()
-		if err != nil {
-			redirect <- requestAndError{nil, err}
-			return
-		}
-		defer conn.Close()
-
-		req, err := http.ReadRequest(bufio.NewReader(conn))
-		redirect <- requestAndError{req, err}
-
-		resp := http.Response{
-			ProtoMajor: 1,
-			ProtoMinor: 1,
-			StatusCode: 200,
-			Body: ioutil.NopCloser(strings.NewReader(
-				"<script>window.close()</script>",
-			)),
-		}
-		resp.Write(conn)
-	}()
-
+		redirect <- requestAndError{req, nil}
+		io.Copy(rw, strings.NewReader(
+			`<script>window.close()</script>`,
+		))
+	}))
 	return "http://" + ln.Addr().String(), nil
 }
 
@@ -92,6 +76,15 @@ func browse(ctx context.Context, u string) error {
 		return err
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+func waitRequest(ctx context.Context, requests <-chan *http.Request) (*http.Request, error) {
+	select {
+	case req := <-requests:
+		return req, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
