@@ -49,7 +49,7 @@ func main() {
 	app := vk.App{
 		ClientID:     *clientID,
 		ClientSecret: *clientSecret,
-		Scope:        vk.ScopePhotos,
+		Scope:        vk.ScopeWall,
 	}
 
 	access, err := cli.Authorize(ctx, app)
@@ -66,27 +66,44 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(posts)
+	for _, post := range posts {
+		log.Println(len(post.CopyHistory))
+		if n := len(post.CopyHistory); n > 0 {
+			log.Println("delete", deletePost(ctx, access, *ownerID, strconv.Itoa(post.ID)))
+		}
+	}
+}
+
+func deletePost(ctx context.Context, access *vk.AccessToken, ownerID, postID string) error {
+	bts, err := vk.Request(ctx, "wall.delete",
+		vk.WithAccessToken(access),
+		vk.WithParam("owner_id", ownerID),
+		vk.WithParam("post_id", postID),
+	)
+	if err == nil {
+		_, err = vk.StripResponse(bts)
+	}
+	return err
 }
 
 func getPosts(ctx context.Context, access *vk.AccessToken, ownerID string) ([]vk.Post, error) {
 	bts, err := vk.Request(ctx, "wall.get",
 		vk.WithAccessToken(access),
 		vk.WithParam("owner_id", ownerID),
+		vk.WithParam("filter", "owner"),
+		vk.WithParam("count", "2"),
 	)
+
+	log.Println(string(bts))
 	if err != nil {
 		return nil, err
 	}
-	log.Println(string(bts))
-	var response vk.Response
-	if err := response.UnmarshalJSON(bts); err != nil {
-		return nil, err
-	}
-	if err := response.Error(); err != nil {
+	bts, err = vk.StripResponse(bts)
+	if err != nil {
 		return nil, err
 	}
 	var posts vk.Posts
-	if err := posts.UnmarshalJSON(response.Body); err != nil {
+	if err := posts.UnmarshalJSON(bts); err != nil {
 		return nil, err
 	}
 	return posts.Items, nil

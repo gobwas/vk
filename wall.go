@@ -8,7 +8,7 @@ type Posts struct {
 }
 
 type Post struct {
-	Id           int    `json:"id"`
+	ID           int    `json:"id"`
 	OwnerID      int    `json:"owner_id"`
 	FromID       int    `json:"from_id"`
 	CreatedBy    int    `json:"created_by"`
@@ -36,9 +36,9 @@ type Post struct {
 }
 
 type PostComments struct {
-	Count         int `json:"count"`
-	CanPost       int `json:"can_post"`
-	GroupsCanPost int `json:"groups_can_post"`
+	Count         int  `json:"count"`
+	CanPost       int  `json:"can_post"`
+	GroupsCanPost bool `json:"groups_can_post"`
 }
 
 type PostLikes struct {
@@ -84,7 +84,7 @@ type PostGeoPlace struct {
 	GroupPhoto string `json:"group_photo"`
 	Checkins   int    `json:"checkins"`
 	Updated    int    `json:"updated"`
-	Address    int    `json:"address"`
+	Address    string `json:"address"`
 }
 
 type PostSource struct {

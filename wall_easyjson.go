@@ -546,7 +546,7 @@ func easyjson783c1624DecodeGithubComGobwasVk5(in *jlexer.Lexer, out *PostGeoPlac
 		case "updated":
 			out.Updated = int(in.Int())
 		case "address":
-			out.Address = int(in.Int())
+			out.Address = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -699,7 +699,7 @@ func easyjson783c1624EncodeGithubComGobwasVk5(out *jwriter.Writer, in PostGeoPla
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int(int(in.Address))
+		out.String(string(in.Address))
 	}
 	out.RawByte('}')
 }
@@ -846,7 +846,7 @@ func easyjson783c1624DecodeGithubComGobwasVk7(in *jlexer.Lexer, out *PostComment
 		case "can_post":
 			out.CanPost = int(in.Int())
 		case "groups_can_post":
-			out.GroupsCanPost = int(in.Int())
+			out.GroupsCanPost = bool(in.Bool())
 		default:
 			in.SkipRecursive()
 		}
@@ -889,7 +889,7 @@ func easyjson783c1624EncodeGithubComGobwasVk7(out *jwriter.Writer, in PostCommen
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int(int(in.GroupsCanPost))
+		out.Bool(bool(in.GroupsCanPost))
 	}
 	out.RawByte('}')
 }
@@ -1008,7 +1008,7 @@ func easyjson783c1624DecodeGithubComGobwasVk9(in *jlexer.Lexer, out *Post) {
 		}
 		switch key {
 		case "id":
-			out.Id = int(in.Int())
+			out.ID = int(in.Int())
 		case "owner_id":
 			out.OwnerID = int(in.Int())
 		case "from_id":
@@ -1119,7 +1119,7 @@ func easyjson783c1624EncodeGithubComGobwasVk9(out *jwriter.Writer, in Post) {
 		} else {
 			out.RawString(prefix)
 		}
-		out.Int(int(in.Id))
+		out.Int(int(in.ID))
 	}
 	{
 		const prefix string = ",\"owner_id\":"
