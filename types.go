@@ -48,6 +48,7 @@ type RequestParam struct {
 	Value string `json:"value"`
 }
 
+//easyjson:json
 type rawAccess struct {
 	Token   string `json:"access_token"`
 	Expires int    `json:"expires_in"`

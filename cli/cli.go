@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -23,7 +26,7 @@ func Authorize(ctx context.Context, app vk.App) (token *vk.AccessToken, err erro
 		"display", "page",
 	))
 	// Open a web browser to authorize an app.
-	if err := browse(ctx, auth); err != nil {
+	if err := Browse(ctx, auth); err != nil {
 		return nil, err
 	}
 	req, err := waitRedirect(ctx, redirect)
@@ -35,6 +38,35 @@ func Authorize(ctx context.Context, app vk.App) (token *vk.AccessToken, err erro
 		return nil, err
 	}
 	return app.Authorize(ctx, redirectPath, code)
+}
+
+func AuthorizeStandalone(ctx context.Context, app vk.App) (*vk.AccessToken, error) {
+	auth := app.AuthPathToken(
+		"https://oauth.vk.com/blank.html",
+		vk.WithParam(
+			"display", "page",
+		),
+	)
+	// Open a web browser to authorize an app.
+	if err := Browse(ctx, auth); err != nil {
+		return nil, err
+	}
+
+	str, err := Prompt(ctx, "Copy and paste url from browser: ")
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(str)
+	if err != nil {
+		return nil, err
+	}
+	params, err := url.ParseQuery(u.Fragment)
+	if err != nil {
+		return nil, err
+	}
+
+	return vk.TokenFromQuery(params)
 }
 
 func redirectServer(ctx context.Context, redirect chan<- requestAndError) (uri string, err error) {
@@ -52,7 +84,7 @@ func redirectServer(ctx context.Context, redirect chan<- requestAndError) (uri s
 	return "http://" + ln.Addr().String(), nil
 }
 
-func browse(ctx context.Context, u string) error {
+func Browse(ctx context.Context, u string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "linux":
@@ -79,6 +111,27 @@ func browse(ctx context.Context, u string) error {
 	}
 }
 
+func Prompt(ctx context.Context, question string) (string, error) {
+	fmt.Fprint(os.Stderr, question)
+
+	ch := make(chan stringAndError, 1)
+	go func() {
+		r := bufio.NewReader(os.Stdin)
+		p, err := r.ReadBytes('\n')
+		if n := len(p); n > 0 {
+			p = p[:n-1]
+		}
+		ch <- stringAndError{string(p), err}
+	}()
+
+	select {
+	case r := <-ch:
+		return r.str, r.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
 func waitRequest(ctx context.Context, requests <-chan *http.Request) (*http.Request, error) {
 	select {
 	case req := <-requests:
@@ -99,5 +152,10 @@ func waitRedirect(ctx context.Context, redirect <-chan requestAndError) (*http.R
 
 type requestAndError struct {
 	req *http.Request
+	err error
+}
+
+type stringAndError struct {
+	str string
 	err error
 }

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/gobwas/vk"
@@ -29,20 +28,14 @@ var (
 		"parallelism", 32,
 		"number of parallel downloadings",
 	)
+	force = flag.Bool(
+		"force", false,
+		"delete posts without prompt",
+	)
 )
 
 func main() {
 	flag.Parse()
-
-	if *clientID == "" || *clientSecret == "" {
-		fmt.Fprintf(os.Stderr,
-			"Usage: %s [options]\n\n",
-			os.Args[0],
-		)
-		flag.CommandLine.SetOutput(os.Stderr)
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
 
 	ctx := context.Background()
 
@@ -51,33 +44,41 @@ func main() {
 		ClientSecret: *clientSecret,
 		Scope:        vk.ScopeWall,
 	}
-
-	access, err := cli.Authorize(ctx, app)
+	access, err := cli.AuthorizeStandalone(ctx, app)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if *ownerID == "" {
-		*ownerID = strconv.Itoa(access.UserID)
-	}
-
-	posts, err := getPosts(ctx, access, *ownerID)
+	posts, err := getPosts(ctx, access)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	for _, post := range posts {
-		log.Println(len(post.CopyHistory))
 		if n := len(post.CopyHistory); n > 0 {
-			log.Println("delete", deletePost(ctx, access, *ownerID, strconv.Itoa(post.ID)))
+			if !*force {
+				action, err := cli.Prompt(ctx, fmt.Sprintf("delete %s ? ", homePage(access, post)))
+				if err != nil {
+					log.Fatal(err)
+				}
+				if action != "y" {
+					continue
+				}
+			}
+			if err := deletePost(ctx, access, strconv.Itoa(post.ID)); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
 
-func deletePost(ctx context.Context, access *vk.AccessToken, ownerID, postID string) error {
+func homePage(access *vk.AccessToken, post vk.Post) string {
+	return "https://vk.com/wall" + strconv.Itoa(access.UserID) + "_" + strconv.Itoa(post.ID)
+}
+
+func deletePost(ctx context.Context, access *vk.AccessToken, postID string) error {
 	bts, err := vk.Request(ctx, "wall.delete",
 		vk.WithAccessToken(access),
-		vk.WithParam("owner_id", ownerID),
+		vk.WithParam("owner_id", strconv.Itoa(access.UserID)),
 		vk.WithParam("post_id", postID),
 	)
 	if err == nil {
@@ -86,15 +87,12 @@ func deletePost(ctx context.Context, access *vk.AccessToken, ownerID, postID str
 	return err
 }
 
-func getPosts(ctx context.Context, access *vk.AccessToken, ownerID string) ([]vk.Post, error) {
+func getPosts(ctx context.Context, access *vk.AccessToken) ([]vk.Post, error) {
 	bts, err := vk.Request(ctx, "wall.get",
 		vk.WithAccessToken(access),
-		vk.WithParam("owner_id", ownerID),
+		vk.WithParam("owner_id", strconv.Itoa(access.UserID)),
 		vk.WithParam("filter", "owner"),
-		vk.WithParam("count", "2"),
 	)
-
-	log.Println(string(bts))
 	if err != nil {
 		return nil, err
 	}
