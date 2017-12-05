@@ -50,11 +50,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	posts := PostsIterator{
-		Access: access,
+	var list vk.Posts
+	it := vk.Iterator{
+		Method: "wall.get",
+		Options: vk.QueryOptions(
+			vk.WithAccessToken(access),
+			vk.WithNumber("owner_id", access.UserID),
+			vk.WithNumber("count", 100),
+			vk.WithParam("filter", "owner"),
+		),
+		Parse: func(p []byte) (int, error) {
+			list = vk.Posts{} // Reset.
+			err := list.UnmarshalJSON(p)
+			return len(list.Items), err
+		},
 	}
-	for posts.Next(ctx) {
-		for _, post := range posts.Posts() {
+	for it.Next(ctx) {
+		for _, post := range list.Items {
 			if n := len(post.CopyHistory); n > 0 {
 				if !*force {
 					action, err := cli.Prompt(ctx, fmt.Sprintf(
@@ -75,59 +87,9 @@ func main() {
 			}
 		}
 	}
-	if err := posts.Err(); err != nil {
+	if err := it.Err(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-type PostsIterator struct {
-	Access *vk.AccessToken
-
-	offset int
-	ps     []vk.Post
-	err    error
-}
-
-func (p *PostsIterator) Next(ctx context.Context) bool {
-	if p.err != nil {
-		return false
-	}
-	p.ps, p.err = p.fetch(ctx)
-	return p.err == nil && len(p.ps) > 0
-}
-
-func (p *PostsIterator) Posts() []vk.Post {
-	return p.ps
-}
-
-func (p *PostsIterator) Err() error {
-	return p.err
-}
-
-func (p *PostsIterator) fetch(ctx context.Context) ([]vk.Post, error) {
-	bts, err := vk.Request(ctx, "wall.get",
-		vk.WithAccessToken(p.Access),
-		vk.WithOffset(p.offset),
-		vk.WithParam("owner_id", strconv.Itoa(p.Access.UserID)),
-		vk.WithParam("filter", "owner"),
-		vk.WithParam("count", "100"),
-	)
-	if err != nil {
-		return nil, err
-	}
-	bts, err = vk.StripResponse(bts)
-	if err != nil {
-		return nil, err
-	}
-
-	var posts vk.Posts
-	if err := posts.UnmarshalJSON(bts); err != nil {
-		return nil, err
-	}
-
-	p.offset += len(posts.Items)
-
-	return posts.Items, nil
 }
 
 func homePage(access *vk.AccessToken, post vk.Post) string {

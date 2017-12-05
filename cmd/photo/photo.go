@@ -359,7 +359,7 @@ func (pg *PhotoGetter) get(ctx context.Context, method string, queryOptions ...v
 			bts, err = vk.Request(ctx, method,
 				vk.WithOptions(queryOptions),
 				vk.WithAccessToken(pg.Access),
-				vk.WithOffset(offset),
+				vk.WithNumber("offset", offset),
 				vk.WithParam("count", maxCountStr),
 				vk.WithParam("photo_sizes", "1"), // Special sizes format.
 			)
