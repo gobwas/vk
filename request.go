@@ -21,6 +21,10 @@ type request struct {
 
 type QueryOption func(url.Values)
 
+func QueryOptions(options ...QueryOption) []QueryOption {
+	return options
+}
+
 func WithOptions(options []QueryOption) QueryOption {
 	return func(query url.Values) {
 		for _, option := range options {
@@ -45,9 +49,9 @@ func WithParam(key, value string) QueryOption {
 	}
 }
 
-func WithOffset(offset int) QueryOption {
+func WithNumber(key string, n int) QueryOption {
 	return func(query url.Values) {
-		query.Set("offset", strconv.Itoa(offset))
+		query.Set(key, strconv.Itoa(n))
 	}
 }
 
@@ -100,4 +104,48 @@ func (req *request) url() string {
 	u.Path += "/" + req.method
 	u.RawQuery = req.query.Encode()
 	return u.String()
+}
+
+type Iterator struct {
+	Method  string
+	Options []QueryOption
+	Parse   func([]byte) (int, error)
+
+	offset int
+	err    error
+}
+
+func (it *Iterator) Next(ctx context.Context) bool {
+	if it.err != nil {
+		return false
+	}
+	var n int
+	n, it.err = it.fetch(ctx)
+	return it.err == nil && n > 0
+}
+
+func (it *Iterator) Err() error {
+	return it.err
+}
+
+func (it *Iterator) fetch(ctx context.Context) (int, error) {
+	bts, err := Request(ctx, it.Method,
+		WithOptions(it.Options),
+		WithNumber("offset", it.offset),
+	)
+	if err != nil {
+		return 0, err
+	}
+	bts, err = StripResponse(bts)
+	if err != nil {
+		return 0, err
+	}
+	n, err := it.Parse(bts)
+	if err != nil {
+		return 0, err
+	}
+
+	it.offset += n
+
+	return n, nil
 }
