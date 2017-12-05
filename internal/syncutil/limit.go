@@ -1,18 +1,20 @@
 package syncutil
 
 import (
-	"context"
+	"errors"
 	"time"
 )
 
+var ErrClosed = errors.New("limiter closed")
+
 type Limiter struct {
-	ctx     context.Context
+	done    chan struct{}
 	tickets chan struct{}
 }
 
-func NewLimiter(ctx context.Context, interval time.Duration, count int) *Limiter {
+func NewLimiter(interval time.Duration, count int) *Limiter {
 	l := &Limiter{
-		ctx:     ctx,
+		done:    make(chan struct{}),
 		tickets: make(chan struct{}, count),
 	}
 	fill := func() {
@@ -24,13 +26,14 @@ func NewLimiter(ctx context.Context, interval time.Duration, count int) *Limiter
 			}
 		}
 	}
+
 	fill()
 
 	go func() {
 		ticker := time.NewTicker(interval)
 		for {
 			select {
-			case <-ctx.Done():
+			case <-l.done:
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -45,11 +48,13 @@ func NewLimiter(ctx context.Context, interval time.Duration, count int) *Limiter
 func (l *Limiter) Do(fn func()) error {
 	select {
 	case <-l.tickets:
-	case <-l.ctx.Done():
-		return l.ctx.Err()
+	case <-l.done:
+		return ErrClosed
 	}
-
 	fn()
-
 	return nil
+}
+
+func (l *Limiter) Close() {
+	close(l.done)
 }

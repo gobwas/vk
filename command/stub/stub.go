@@ -2,10 +2,14 @@ package stub
 
 import (
 	"bytes"
+	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
+	"github.com/gobwas/vk"
+	vkcli "github.com/gobwas/vk/cli"
 	"github.com/mitchellh/cli"
 )
 
@@ -16,11 +20,19 @@ func CLI(ui cli.Ui) cli.CommandFactory {
 }
 
 type Config struct {
-	Num int
+	ClientID     string
+	ClientSecret string
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
-	flag.IntVar(&c.Num, "num", 42, "some num")
+	flag.StringVar(&c.ClientID,
+		"client_id", "",
+		"application id",
+	)
+	flag.StringVar(&c.ClientSecret,
+		"client_secret", "",
+		"application secret",
+	)
 }
 
 type Command struct {
@@ -47,7 +59,27 @@ func (c *Command) Run(args []string) int {
 	if err := c.flag.Parse(args); err != nil {
 		return cli.RunResultHelp
 	}
+
+	ctx := context.Background()
+
+	app := vk.App{
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
+		Scope:        vk.ScopeWall,
+	}
+	access, err := vkcli.AuthorizeStandalone(ctx, app)
+	if err != nil {
+		c.errorf("authorize error: %v", err)
+		return 1
+	}
+
+	panic(access.Token)
+
 	return 0
+}
+
+func (c *Command) errorf(f string, args ...interface{}) {
+	c.ui.Error(fmt.Sprintf(f, args...))
 }
 
 func (c *Command) flagDefaults() string {

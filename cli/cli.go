@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gobwas/vk"
 )
@@ -52,7 +53,7 @@ func AuthorizeStandalone(ctx context.Context, app vk.App) (*vk.AccessToken, erro
 		return nil, err
 	}
 
-	str, err := Prompt(ctx, "Copy and paste url from browser: ")
+	str, err := Ask(ctx, "Copy and paste url from browser: ")
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +112,7 @@ func Browse(ctx context.Context, u string) error {
 	}
 }
 
-func Prompt(ctx context.Context, question string) (string, error) {
+func Ask(ctx context.Context, question string) (string, error) {
 	fmt.Fprint(os.Stderr, question)
 
 	ch := make(chan stringAndError, 1)
@@ -129,6 +130,49 @@ func Prompt(ctx context.Context, question string) (string, error) {
 		return r.str, r.err
 	case <-ctx.Done():
 		return "", ctx.Err()
+	}
+}
+
+func AskRune(ctx context.Context, question string) (rune, error) {
+	// disable input buffering
+	err := exec.Command("stty", "-f", "/dev/tty", "cbreak", "min", "1").Run()
+	if err != nil {
+		return 0, err
+	}
+	// do not display entered characters on the screen
+	//exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+	// restore the echoing state when exiting
+	defer exec.Command("stty", "-F", "/dev/tty", "echo").Run()
+
+	fmt.Fprint(os.Stderr, question)
+	defer fmt.Fprint(os.Stderr, "\n")
+
+	ch := make(chan runeAndError, 1)
+	go func() {
+		p := make([]byte, utf8.UTFMax)
+		for i := range p {
+			_, err := os.Stdin.Read(p[i : i+1])
+			if err != nil {
+				ch <- runeAndError{0, err}
+				return
+			}
+			if utf8.FullRune(p) {
+				break
+			}
+		}
+		r, _ := utf8.DecodeRune(p)
+		if r == utf8.RuneError {
+			ch <- runeAndError{0, fmt.Errorf("invalid sequence")}
+		} else {
+			ch <- runeAndError{r, nil}
+		}
+	}()
+
+	select {
+	case r := <-ch:
+		return r.r, r.err
+	case <-ctx.Done():
+		return 0, ctx.Err()
 	}
 }
 
@@ -157,5 +201,10 @@ type requestAndError struct {
 
 type stringAndError struct {
 	str string
+	err error
+}
+
+type runeAndError struct {
+	r   rune
 	err error
 }

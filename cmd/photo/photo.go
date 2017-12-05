@@ -162,7 +162,7 @@ func main() {
 
 	subctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	limiter := syncutil.NewLimiter(subctx, time.Second, 3)
+	limiter := syncutil.NewLimiter(time.Second, 3)
 
 	photoGetter := &PhotoGetter{
 		Access:  access,

@@ -6,8 +6,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/gobwas/vk/internal/httputil"
+	"github.com/gobwas/vk/internal/syncutil"
 )
 
 type Authorizer interface {
@@ -111,21 +114,37 @@ type Iterator struct {
 	Options []QueryOption
 	Parse   func([]byte) (int, error)
 
-	offset int
-	err    error
+	limiter *syncutil.Limiter
+	offset  int
+	err     error
+	once    sync.Once
 }
 
 func (it *Iterator) Next(ctx context.Context) bool {
 	if it.err != nil {
 		return false
 	}
+	it.init()
 	var n int
-	n, it.err = it.fetch(ctx)
+	it.limiter.Do(func() {
+		n, it.err = it.fetch(ctx)
+	})
 	return it.err == nil && n > 0
 }
 
 func (it *Iterator) Err() error {
 	return it.err
+}
+
+func (it *Iterator) init() {
+	it.once.Do(func() {
+		it.limiter = syncutil.NewLimiter(time.Second, 3)
+	})
+}
+
+func (it *Iterator) Close() {
+	it.init()
+	it.limiter.Close()
 }
 
 func (it *Iterator) fetch(ctx context.Context) (int, error) {
