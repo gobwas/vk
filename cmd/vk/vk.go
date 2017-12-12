@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/gobwas/vk/command/friends"
+	"github.com/gobwas/vk/command/photo"
 	"github.com/gobwas/vk/command/posts"
 	"github.com/gobwas/vk/command/stub"
 	"github.com/mitchellh/cli"
@@ -23,8 +25,10 @@ func main() {
 	c := cli.NewCLI(name, version)
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
-		"stub":  stub.CLI(&ui),
-		"posts": posts.CLI(&ui),
+		"stub":    stub.CLI(&ui),
+		"posts":   posts.CLI(&ui),
+		"photo":   photo.CLI(&ui),
+		"friends": friends.CLI(&ui),
 	}
 
 	exitStatus, err := c.Run()

@@ -124,12 +124,26 @@ func (it *Iterator) Next(ctx context.Context) bool {
 	if it.err != nil {
 		return false
 	}
+
 	it.init()
-	var n int
-	it.limiter.Do(func() {
-		n, it.err = it.fetch(ctx)
-	})
-	return it.err == nil && n > 0
+
+	var (
+		n   int
+		err error
+	)
+	for {
+		it.limiter.Do(func() {
+			n, err = it.fetch(ctx)
+		})
+		if vkErr, ok := err.(*Error); ok && vkErr.Temporary() {
+			continue
+		}
+		break
+	}
+
+	it.err = err
+
+	return err == nil && n > 0
 }
 
 func (it *Iterator) Err() error {

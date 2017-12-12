@@ -1,6 +1,7 @@
-package main
+package photo
 
 import (
+	"bytes"
 	"container/ring"
 	"context"
 	"flag"
@@ -13,16 +14,55 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gobwas/vk"
-	"github.com/gobwas/vk/cli"
+	vkcli "github.com/gobwas/vk/cli"
 	"github.com/gobwas/vk/internal/httputil"
 	"github.com/gobwas/vk/internal/syncutil"
+	"github.com/mitchellh/cli"
 	"github.com/vbauerster/mpb"
 	"github.com/vbauerster/mpb/decor"
 )
+
+func CLI(ui cli.Ui) cli.CommandFactory {
+	return func() (cli.Command, error) {
+		return New(ui), nil
+	}
+}
+
+type Config struct {
+	ClientID     string
+	ClientSecret string
+	OwnerID      string
+	Dest         string
+	Parallelism  int
+}
+
+func (c *Config) ExportTo(flag *flag.FlagSet) {
+	flag.StringVar(&c.ClientID,
+		"client_id", "",
+		"application id",
+	)
+	flag.StringVar(&c.ClientSecret,
+		"client_secret", "",
+		"application secret",
+	)
+	flag.StringVar(&c.OwnerID,
+		"owner_id", "",
+		"albums owner id (empty for your id)",
+	)
+	flag.StringVar(&c.Dest,
+		"dest", getDefaultDest("vkphoto"),
+		"destination root dir for photos",
+	)
+	flag.IntVar(&c.Parallelism,
+		"parallelism", 32,
+		"number of parallel downloadings",
+	)
+}
 
 func getDefaultDest(suffix string) (path string) {
 	user, err := user.Current()
@@ -35,113 +75,64 @@ func getDefaultDest(suffix string) (path string) {
 	return path + "/" + suffix
 }
 
-var (
-	clientID = flag.String(
-		"client_id", "",
-		"application id",
-	)
-	clientSecret = flag.String(
-		"client_secret", "",
-		"application secret",
-	)
-	ownerID = flag.String(
-		"owner_id", "",
-		"albums owner id (empty for your id)",
-	)
-	dest = flag.String(
-		"dest", getDefaultDest("vkphoto"),
-		"destination root dir for photos",
-	)
-	parallelism = flag.Int(
-		"parallelism", 32,
-		"number of parallel downloadings",
-	)
-	withWall = flag.Bool(
-		"wall", true,
-		"download photos from internal 'wall' album",
-	)
-	withSaved = flag.Bool(
-		"saved", true,
-		"download photos from internal 'saved' album",
-	)
-	withProfile = flag.Bool(
-		"profile", true,
-		"download photos from internal 'profile' album",
-	)
-	withTags = flag.Bool(
-		"tags", true,
-		"download photos from internal 'tags' album",
-	)
-)
+type Command struct {
+	ui     cli.Ui
+	flag   *flag.FlagSet
+	config *Config
+}
 
-var (
-	wallAlbum = vk.PhotoAlbum{
-		ID:    -1,
-		Title: "wall",
-	}
-	savedAlbum = vk.PhotoAlbum{
-		ID:    -2,
-		Title: "saved",
-	}
-	profileAlbum = vk.PhotoAlbum{
-		ID:    -3,
-		Title: "profile",
-	}
-	tagsAlbum = vk.PhotoAlbum{
-		ID:    -4,
-		Title: "tags",
-	}
-)
+func New(ui cli.Ui) *Command {
+	flag := flag.NewFlagSet("", flag.ContinueOnError)
+	flag.Usage = func() {}
 
-func main() {
-	flag.Parse()
+	c := new(Config)
+	c.ExportTo(flag)
 
-	if *clientID == "" || *clientSecret == "" {
-		fmt.Fprintf(os.Stderr,
-			"Usage: %s [options]\n\n",
-			os.Args[0],
-		)
-		flag.CommandLine.SetOutput(os.Stderr)
-		flag.PrintDefaults()
-		os.Exit(1)
+	return &Command{
+		ui:     ui,
+		flag:   flag,
+		config: c,
+	}
+}
+
+func (c *Command) Run(args []string) int {
+	if err := c.flag.Parse(args); err != nil {
+		return cli.RunResultHelp
 	}
 
 	ctx := context.Background()
 
 	app := vk.App{
-		ClientID:     *clientID,
-		ClientSecret: *clientSecret,
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
 		Scope:        vk.ScopePhotos,
 	}
+	access, err := vkcli.Authorize(ctx, app)
+	if err != nil {
+		c.errorf("authorize error: %v", err)
+		return 1
+	}
 
-	access, err := cli.Authorize(ctx, app)
+	ownerID := c.config.OwnerID
+	if ownerID == "" {
+		ownerID = strconv.Itoa(access.UserID)
+	}
+
+	dest := c.config.Dest
+	dest += "/" + ownerID
+
+	albums, err := getAlbums(ctx, access, ownerID)
 	if err != nil {
 		log.Fatal(err)
 	}
+	albums = append(albums,
+		wallAlbum,
+		savedAlbum,
+		profileAlbum,
+		tagsAlbum,
+	)
 
-	if *ownerID == "" {
-		*ownerID = strconv.Itoa(access.UserID)
-	}
-	*dest += "/" + *ownerID
-
-	albums, err := getAlbums(ctx, access, *ownerID)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if *withWall {
-		albums = append(albums, wallAlbum)
-	}
-	if *withSaved {
-		albums = append(albums, savedAlbum)
-	}
-	if *withProfile {
-		albums = append(albums, profileAlbum)
-	}
-	if *withTags {
-		albums = append(albums, tagsAlbum)
-	}
-
-	fmt.Fprintf(os.Stderr, "ready to store photos at %s\n", *dest)
+	c.logf("ready to store photos at %s", dest)
 
 	ringLogger := newRingLogger(24)
 	log.SetOutput(ringLogger)
@@ -155,14 +146,13 @@ func main() {
 
 	var wg sync.WaitGroup
 	work := make(chan PhotoFromAlbum, 100)
-	for i := 0; i < *parallelism; i++ {
+	for i := 0; i < c.config.Parallelism; i++ {
 		wg.Add(1)
-		go processPhotoFromAlbum(ctx, &wg, &bars, *dest, work)
+		go processPhotoFromAlbum(ctx, &wg, &bars, dest, work)
 	}
 
-	subctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	limiter := syncutil.NewLimiter(time.Second, 3)
+	defer limiter.Close()
 
 	photoGetter := &PhotoGetter{
 		Access:  access,
@@ -174,7 +164,7 @@ func main() {
 		var photos []vk.Photo
 		if album.ID == -4 {
 			// Tags album.
-			photos, err = photoGetter.GetUserPhotos(ctx, *ownerID)
+			photos, err = photoGetter.GetUserPhotos(ctx, ownerID)
 		} else {
 			var albumID string
 			switch album.ID {
@@ -189,7 +179,7 @@ func main() {
 			}
 			// TODO: could put photos directly to a channel. Will work for large
 			// albums.
-			photos, err = photoGetter.GetAlbumPhotos(ctx, *ownerID, albumID)
+			photos, err = photoGetter.GetAlbumPhotos(ctx, ownerID, albumID)
 		}
 		if err != nil {
 			log.Printf(
@@ -202,7 +192,7 @@ func main() {
 			continue
 		}
 		// Prepare directory for this album.
-		if err := os.MkdirAll(getAlbumDir(*dest, album), os.ModePerm); err != nil {
+		if err := os.MkdirAll(getAlbumDir(dest, album), os.ModePerm); err != nil {
 			panic(err)
 		}
 
@@ -230,7 +220,55 @@ func main() {
 	close(work)
 	wg.Wait()
 	progress.Stop()
+
+	return 0
 }
+
+func (c *Command) errorf(f string, args ...interface{}) {
+	c.ui.Error(fmt.Sprintf(f, args...))
+}
+
+func (c *Command) logf(f string, args ...interface{}) {
+	c.ui.Info(fmt.Sprintf(f, args...))
+}
+
+func (c *Command) flagDefaults() string {
+	var buf bytes.Buffer
+	c.flag.SetOutput(&buf)
+	c.flag.PrintDefaults()
+	c.flag.SetOutput(os.Stderr)
+	return buf.String()
+}
+
+func (c *Command) Synopsis() string {
+	return "photo command"
+}
+
+func (c *Command) Help() string {
+	return strings.Join([]string{
+		"Usage: photo [options]",
+		c.flagDefaults(),
+	}, "\n")
+}
+
+var (
+	wallAlbum = vk.PhotoAlbum{
+		ID:    -1,
+		Title: "wall",
+	}
+	savedAlbum = vk.PhotoAlbum{
+		ID:    -2,
+		Title: "saved",
+	}
+	profileAlbum = vk.PhotoAlbum{
+		ID:    -3,
+		Title: "profile",
+	}
+	tagsAlbum = vk.PhotoAlbum{
+		ID:    -4,
+		Title: "tags",
+	}
+)
 
 func maxAlbumTitleWidth(albums []vk.PhotoAlbum) int {
 	var max int
@@ -319,6 +357,55 @@ func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as 
 	return albums.Items, nil
 }
 
+func getLargestSize(sizes []vk.PhotoSize) (max vk.PhotoSize) {
+	// Range from the end of sizes cause there is a nice chance that 'w' type
+	// is the last one.
+	for i := len(sizes) - 1; i >= 0; i-- {
+		size := sizes[i]
+		if size.Type == vk.SizeW {
+			// Largest possible size.
+			return size
+		}
+		if max.Type.Less(size.Type) {
+			max = size
+		}
+	}
+	return max
+}
+
+type ringLogger struct {
+	mu   sync.Mutex
+	ring *ring.Ring
+}
+
+func newRingLogger(n int) *ringLogger {
+	return &ringLogger{
+		ring: ring.New(n),
+	}
+}
+
+func (r *ringLogger) Write(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	next := r.ring.Next()
+	next.Value = string(p)
+	r.ring = r.ring.Move(1)
+	return len(p), nil
+}
+
+func (r *ringLogger) Interceptor() func(io.Writer) {
+	return func(out io.Writer) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.ring.Do(func(v interface{}) {
+			if v == nil {
+				return
+			}
+			out.Write([]byte(v.(string)))
+		})
+	}
+}
+
 type PhotoGetter struct {
 	Limiter *syncutil.Limiter
 	Access  *vk.AccessToken
@@ -391,53 +478,4 @@ func (pg *PhotoGetter) get(ctx context.Context, method string, queryOptions ...v
 		offset += photos.Count
 	}
 	return ret, nil
-}
-
-func getLargestSize(sizes []vk.PhotoSize) (max vk.PhotoSize) {
-	// Range from the end of sizes cause there is a nice chance that 'w' type
-	// is the last one.
-	for i := len(sizes) - 1; i >= 0; i-- {
-		size := sizes[i]
-		if size.Type == vk.SizeW {
-			// Largest possible size.
-			return size
-		}
-		if max.Type.Less(size.Type) {
-			max = size
-		}
-	}
-	return max
-}
-
-type ringLogger struct {
-	mu   sync.Mutex
-	ring *ring.Ring
-}
-
-func newRingLogger(n int) *ringLogger {
-	return &ringLogger{
-		ring: ring.New(n),
-	}
-}
-
-func (r *ringLogger) Write(p []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	next := r.ring.Next()
-	next.Value = string(p)
-	r.ring = r.ring.Move(1)
-	return len(p), nil
-}
-
-func (r *ringLogger) Interceptor() func(io.Writer) {
-	return func(out io.Writer) {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.ring.Do(func(v interface{}) {
-			if v == nil {
-				return
-			}
-			out.Write([]byte(v.(string)))
-		})
-	}
 }

@@ -1,4 +1,4 @@
-all: photo posts friends
+all: vk 
 
 GENERATE_FILES=$(shell fgrep -l -r "go:generate easyjson" $(PWD) | grep ".*\.go")
 
@@ -22,14 +22,6 @@ endif
 .PHONY: vk
 vk: generate
 	go build -o bin/vk ./cmd/vk
-
-.PHONY: photo
-photo: generate
-	go build -o bin/photo ./cmd/photo
-
-.PHONY: posts
-posts: generate
-	go build -o bin/posts ./cmd/posts
 
 .PHONY: friends
 friends: generate
