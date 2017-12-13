@@ -100,8 +100,8 @@ func (c *Command) Run(args []string) int {
 				continue
 			}
 		}
-		err := deleteFriend(ctx, access, friend)
-		if err != nil {
+		continue
+		if err := deleteFriend(ctx, access, friend); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -132,7 +132,7 @@ func (c *Command) Help() string {
 	}, "\n")
 }
 
-func homePage(f vk.Friend) string {
+func homePage(f vk.User) string {
 	s := f.Domain
 	if s == "" {
 		s = strconv.Itoa(f.ID)
@@ -140,7 +140,7 @@ func homePage(f vk.Friend) string {
 	return "https://vk.com/" + s
 }
 
-func deleteFriend(ctx context.Context, access *vk.AccessToken, friend vk.Friend) error {
+func deleteFriend(ctx context.Context, access *vk.AccessToken, friend vk.User) error {
 	bts, err := vk.Request(ctx, "friends.delete",
 		vk.WithAccessToken(access),
 		vk.WithParam("user_id", strconv.Itoa(friend.ID)),
@@ -151,7 +151,7 @@ func deleteFriend(ctx context.Context, access *vk.AccessToken, friend vk.Friend)
 	return err
 }
 
-func getFriends(ctx context.Context, access *vk.AccessToken) ([]vk.Friend, error) {
+func getFriends(ctx context.Context, access *vk.AccessToken) ([]vk.User, error) {
 	bts, err := vk.Request(ctx, "friends.get",
 		vk.WithAccessToken(access),
 		vk.WithParam("user_id", strconv.Itoa(access.UserID)),
@@ -163,7 +163,7 @@ func getFriends(ctx context.Context, access *vk.AccessToken) ([]vk.Friend, error
 	if bts, err = vk.StripResponse(bts); err != nil {
 		return nil, err
 	}
-	var fs vk.Friends
+	var fs vk.Users
 	if err := fs.UnmarshalJSON(bts); err != nil {
 		return nil, err
 	}

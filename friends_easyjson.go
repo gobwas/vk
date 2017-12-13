@@ -17,281 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjson3994edd1DecodeGithubComGobwasVk(in *jlexer.Lexer, out *University) {
-	isTopLevel := in.IsStart()
-	if in.IsNull() {
-		if isTopLevel {
-			in.Consumed()
-		}
-		in.Skip()
-		return
-	}
-	in.Delim('{')
-	for !in.IsDelim('}') {
-		key := in.UnsafeString()
-		in.WantColon()
-		if in.IsNull() {
-			in.Skip()
-			in.WantComma()
-			continue
-		}
-		switch key {
-		case "id":
-			out.ID = int(in.Int())
-		case "country":
-			out.Country = int(in.Int())
-		case "city":
-			out.City = int(in.Int())
-		case "name":
-			out.Name = string(in.String())
-		case "faculty":
-			out.Faculty = int(in.Int())
-		case "faculty_name":
-			out.FacultyName = string(in.String())
-		case "chair":
-			out.Chair = int(in.Int())
-		case "chair_name":
-			out.ChairName = string(in.String())
-		case "graduation":
-			out.Graduation = int(in.Int())
-		case "education_form":
-			out.EducationForm = string(in.String())
-		case "education_status":
-			out.EducationStatus = string(in.String())
-		default:
-			in.SkipRecursive()
-		}
-		in.WantComma()
-	}
-	in.Delim('}')
-	if isTopLevel {
-		in.Consumed()
-	}
-}
-func easyjson3994edd1EncodeGithubComGobwasVk(out *jwriter.Writer, in University) {
-	out.RawByte('{')
-	first := true
-	_ = first
-	{
-		const prefix string = ",\"id\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.ID))
-	}
-	{
-		const prefix string = ",\"country\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Country))
-	}
-	{
-		const prefix string = ",\"city\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.City))
-	}
-	{
-		const prefix string = ",\"name\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Name))
-	}
-	{
-		const prefix string = ",\"faculty\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Faculty))
-	}
-	{
-		const prefix string = ",\"faculty_name\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.FacultyName))
-	}
-	{
-		const prefix string = ",\"chair\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Chair))
-	}
-	{
-		const prefix string = ",\"chair_name\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.ChairName))
-	}
-	{
-		const prefix string = ",\"graduation\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Graduation))
-	}
-	{
-		const prefix string = ",\"education_form\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.EducationForm))
-	}
-	{
-		const prefix string = ",\"education_status\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.EducationStatus))
-	}
-	out.RawByte('}')
-}
-
-// MarshalJSON supports json.Marshaler interface
-func (v University) MarshalJSON() ([]byte, error) {
-	w := jwriter.Writer{}
-	easyjson3994edd1EncodeGithubComGobwasVk(&w, v)
-	return w.Buffer.BuildBytes(), w.Error
-}
-
-// MarshalEasyJSON supports easyjson.Marshaler interface
-func (v University) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson3994edd1EncodeGithubComGobwasVk(w, v)
-}
-
-// UnmarshalJSON supports json.Unmarshaler interface
-func (v *University) UnmarshalJSON(data []byte) error {
-	r := jlexer.Lexer{Data: data}
-	easyjson3994edd1DecodeGithubComGobwasVk(&r, v)
-	return r.Error()
-}
-
-// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *University) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson3994edd1DecodeGithubComGobwasVk(l, v)
-}
-func easyjson3994edd1DecodeGithubComGobwasVk1(in *jlexer.Lexer, out *LastSeen) {
-	isTopLevel := in.IsStart()
-	if in.IsNull() {
-		if isTopLevel {
-			in.Consumed()
-		}
-		in.Skip()
-		return
-	}
-	in.Delim('{')
-	for !in.IsDelim('}') {
-		key := in.UnsafeString()
-		in.WantColon()
-		if in.IsNull() {
-			in.Skip()
-			in.WantComma()
-			continue
-		}
-		switch key {
-		case "time":
-			out.Time = int(in.Int())
-		case "platform":
-			out.Platform = int(in.Int())
-		default:
-			in.SkipRecursive()
-		}
-		in.WantComma()
-	}
-	in.Delim('}')
-	if isTopLevel {
-		in.Consumed()
-	}
-}
-func easyjson3994edd1EncodeGithubComGobwasVk1(out *jwriter.Writer, in LastSeen) {
-	out.RawByte('{')
-	first := true
-	_ = first
-	{
-		const prefix string = ",\"time\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Time))
-	}
-	{
-		const prefix string = ",\"platform\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Platform))
-	}
-	out.RawByte('}')
-}
-
-// MarshalJSON supports json.Marshaler interface
-func (v LastSeen) MarshalJSON() ([]byte, error) {
-	w := jwriter.Writer{}
-	easyjson3994edd1EncodeGithubComGobwasVk1(&w, v)
-	return w.Buffer.BuildBytes(), w.Error
-}
-
-// MarshalEasyJSON supports easyjson.Marshaler interface
-func (v LastSeen) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson3994edd1EncodeGithubComGobwasVk1(w, v)
-}
-
-// UnmarshalJSON supports json.Unmarshaler interface
-func (v *LastSeen) UnmarshalJSON(data []byte) error {
-	r := jlexer.Lexer{Data: data}
-	easyjson3994edd1DecodeGithubComGobwasVk1(&r, v)
-	return r.Error()
-}
-
-// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *LastSeen) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson3994edd1DecodeGithubComGobwasVk1(l, v)
-}
-func easyjson3994edd1DecodeGithubComGobwasVk2(in *jlexer.Lexer, out *Friends) {
+func easyjson3994edd1DecodeGithubComGobwasVk(in *jlexer.Lexer, out *Users) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -320,15 +46,15 @@ func easyjson3994edd1DecodeGithubComGobwasVk2(in *jlexer.Lexer, out *Friends) {
 				in.Delim('[')
 				if out.Items == nil {
 					if !in.IsDelim(']') {
-						out.Items = make([]Friend, 0, 1)
+						out.Items = make([]User, 0, 1)
 					} else {
-						out.Items = []Friend{}
+						out.Items = []User{}
 					}
 				} else {
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v1 Friend
+					var v1 User
 					(v1).UnmarshalEasyJSON(in)
 					out.Items = append(out.Items, v1)
 					in.WantComma()
@@ -345,7 +71,7 @@ func easyjson3994edd1DecodeGithubComGobwasVk2(in *jlexer.Lexer, out *Friends) {
 		in.Consumed()
 	}
 }
-func easyjson3994edd1EncodeGithubComGobwasVk2(out *jwriter.Writer, in Friends) {
+func easyjson3994edd1EncodeGithubComGobwasVk(out *jwriter.Writer, in Users) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -384,29 +110,29 @@ func easyjson3994edd1EncodeGithubComGobwasVk2(out *jwriter.Writer, in Friends) {
 }
 
 // MarshalJSON supports json.Marshaler interface
-func (v Friends) MarshalJSON() ([]byte, error) {
+func (v Users) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson3994edd1EncodeGithubComGobwasVk2(&w, v)
+	easyjson3994edd1EncodeGithubComGobwasVk(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v Friends) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson3994edd1EncodeGithubComGobwasVk2(w, v)
+func (v Users) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson3994edd1EncodeGithubComGobwasVk(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
-func (v *Friends) UnmarshalJSON(data []byte) error {
+func (v *Users) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson3994edd1DecodeGithubComGobwasVk2(&r, v)
+	easyjson3994edd1DecodeGithubComGobwasVk(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *Friends) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson3994edd1DecodeGithubComGobwasVk2(l, v)
+func (v *Users) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson3994edd1DecodeGithubComGobwasVk(l, v)
 }
-func easyjson3994edd1DecodeGithubComGobwasVk3(in *jlexer.Lexer, out *Friend) {
+func easyjson3994edd1DecodeGithubComGobwasVk1(in *jlexer.Lexer, out *User) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -433,6 +159,8 @@ func easyjson3994edd1DecodeGithubComGobwasVk3(in *jlexer.Lexer, out *Friend) {
 			out.LastName = string(in.String())
 		case "nickname":
 			out.Nickname = string(in.String())
+		case "screen_name":
+			out.ScreenName = string(in.String())
 		case "domain":
 			out.Domain = string(in.String())
 		case "sex":
@@ -504,7 +232,7 @@ func easyjson3994edd1DecodeGithubComGobwasVk3(in *jlexer.Lexer, out *Friend) {
 		in.Consumed()
 	}
 }
-func easyjson3994edd1EncodeGithubComGobwasVk3(out *jwriter.Writer, in Friend) {
+func easyjson3994edd1EncodeGithubComGobwasVk1(out *jwriter.Writer, in User) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -547,6 +275,16 @@ func easyjson3994edd1EncodeGithubComGobwasVk3(out *jwriter.Writer, in Friend) {
 			out.RawString(prefix)
 		}
 		out.String(string(in.Nickname))
+	}
+	{
+		const prefix string = ",\"screen_name\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.ScreenName))
 	}
 	{
 		const prefix string = ",\"domain\":"
@@ -763,26 +501,300 @@ func easyjson3994edd1EncodeGithubComGobwasVk3(out *jwriter.Writer, in Friend) {
 }
 
 // MarshalJSON supports json.Marshaler interface
-func (v Friend) MarshalJSON() ([]byte, error) {
+func (v User) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson3994edd1EncodeGithubComGobwasVk1(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v User) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson3994edd1EncodeGithubComGobwasVk1(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *User) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson3994edd1DecodeGithubComGobwasVk1(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *User) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson3994edd1DecodeGithubComGobwasVk1(l, v)
+}
+func easyjson3994edd1DecodeGithubComGobwasVk2(in *jlexer.Lexer, out *University) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "id":
+			out.ID = int(in.Int())
+		case "country":
+			out.Country = int(in.Int())
+		case "city":
+			out.City = int(in.Int())
+		case "name":
+			out.Name = string(in.String())
+		case "faculty":
+			out.Faculty = int(in.Int())
+		case "faculty_name":
+			out.FacultyName = string(in.String())
+		case "chair":
+			out.Chair = int(in.Int())
+		case "chair_name":
+			out.ChairName = string(in.String())
+		case "graduation":
+			out.Graduation = int(in.Int())
+		case "education_form":
+			out.EducationForm = string(in.String())
+		case "education_status":
+			out.EducationStatus = string(in.String())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson3994edd1EncodeGithubComGobwasVk2(out *jwriter.Writer, in University) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.ID))
+	}
+	{
+		const prefix string = ",\"country\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Country))
+	}
+	{
+		const prefix string = ",\"city\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.City))
+	}
+	{
+		const prefix string = ",\"name\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Name))
+	}
+	{
+		const prefix string = ",\"faculty\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Faculty))
+	}
+	{
+		const prefix string = ",\"faculty_name\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.FacultyName))
+	}
+	{
+		const prefix string = ",\"chair\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Chair))
+	}
+	{
+		const prefix string = ",\"chair_name\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.ChairName))
+	}
+	{
+		const prefix string = ",\"graduation\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Graduation))
+	}
+	{
+		const prefix string = ",\"education_form\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.EducationForm))
+	}
+	{
+		const prefix string = ",\"education_status\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.EducationStatus))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v University) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson3994edd1EncodeGithubComGobwasVk2(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v University) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson3994edd1EncodeGithubComGobwasVk2(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *University) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson3994edd1DecodeGithubComGobwasVk2(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *University) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson3994edd1DecodeGithubComGobwasVk2(l, v)
+}
+func easyjson3994edd1DecodeGithubComGobwasVk3(in *jlexer.Lexer, out *LastSeen) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "time":
+			out.Time = int(in.Int())
+		case "platform":
+			out.Platform = int(in.Int())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson3994edd1EncodeGithubComGobwasVk3(out *jwriter.Writer, in LastSeen) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"time\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Time))
+	}
+	{
+		const prefix string = ",\"platform\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Platform))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v LastSeen) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
 	easyjson3994edd1EncodeGithubComGobwasVk3(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v Friend) MarshalEasyJSON(w *jwriter.Writer) {
+func (v LastSeen) MarshalEasyJSON(w *jwriter.Writer) {
 	easyjson3994edd1EncodeGithubComGobwasVk3(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
-func (v *Friend) UnmarshalJSON(data []byte) error {
+func (v *LastSeen) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
 	easyjson3994edd1DecodeGithubComGobwasVk3(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *Friend) UnmarshalEasyJSON(l *jlexer.Lexer) {
+func (v *LastSeen) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson3994edd1DecodeGithubComGobwasVk3(l, v)
 }
 func easyjson3994edd1DecodeGithubComGobwasVk4(in *jlexer.Lexer, out *Education) {

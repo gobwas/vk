@@ -20,9 +20,6 @@ else
 endif 
 
 .PHONY: vk
-vk: generate
+vk: 
 	go build -o bin/vk ./cmd/vk
 
-.PHONY: friends
-friends: generate
-	go build -o bin/friends ./cmd/friends

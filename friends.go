@@ -2,11 +2,12 @@ package vk
 
 //go:generate easyjson -all
 
-type Friend struct {
+type User struct {
 	ID                     int          `json:"id"`
 	FirstName              string       `json:"first_name"`
 	LastName               string       `json:"last_name"`
 	Nickname               string       `json:"nickname"`
+	ScreenName             string       `json:"screen_name"`
 	Domain                 string       `json:"domain"`
 	Sex                    int          `json:"sex"`
 	Bdate                  string       `json:"bdate"`
@@ -66,9 +67,9 @@ type Contact struct {
 	Home   string `json:"home_phone"`
 }
 
-type Friends struct {
-	Count int      `json:"count"`
-	Items []Friend `json:"items"`
+type Users struct {
+	Count int    `json:"count"`
+	Items []User `json:"items"`
 }
 
 type City struct {

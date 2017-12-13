@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +56,24 @@ func WithParam(key, value string) QueryOption {
 func WithNumber(key string, n int) QueryOption {
 	return func(query url.Values) {
 		query.Set(key, strconv.Itoa(n))
+	}
+}
+
+func WithNumbers(key string, ns ...int) QueryOption {
+	strs := make([]string, len(ns))
+	for i, n := range ns {
+		strs[i] = strconv.Itoa(n)
+	}
+	list := strings.Join(strs, ",")
+	return func(query url.Values) {
+		query.Set(key, list)
+	}
+}
+
+func WithStrings(key string, strs ...string) QueryOption {
+	list := strings.Join(strs, ",")
+	return func(query url.Values) {
+		query.Set(key, list)
 	}
 }
 

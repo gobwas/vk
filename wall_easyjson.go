@@ -500,329 +500,7 @@ func (v *PostLikes) UnmarshalJSON(data []byte) error {
 func (v *PostLikes) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson783c1624DecodeGithubComGobwasVk4(l, v)
 }
-func easyjson783c1624DecodeGithubComGobwasVk5(in *jlexer.Lexer, out *PostGeoPlace) {
-	isTopLevel := in.IsStart()
-	if in.IsNull() {
-		if isTopLevel {
-			in.Consumed()
-		}
-		in.Skip()
-		return
-	}
-	in.Delim('{')
-	for !in.IsDelim('}') {
-		key := in.UnsafeString()
-		in.WantColon()
-		if in.IsNull() {
-			in.Skip()
-			in.WantComma()
-			continue
-		}
-		switch key {
-		case "id":
-			out.Id = int(in.Int())
-		case "title":
-			out.Title = string(in.String())
-		case "latitude":
-			out.Latitude = float64(in.Float64())
-		case "longitude":
-			out.Longitude = float64(in.Float64())
-		case "created":
-			out.Created = int(in.Int())
-		case "icon":
-			out.Icon = string(in.String())
-		case "country":
-			out.Country = string(in.String())
-		case "city":
-			out.City = string(in.String())
-		case "type":
-			out.Type = int(in.Int())
-		case "group_id":
-			out.GroupID = int(in.Int())
-		case "group_photo":
-			out.GroupPhoto = string(in.String())
-		case "checkins":
-			out.Checkins = int(in.Int())
-		case "updated":
-			out.Updated = int(in.Int())
-		case "address":
-			out.Address = string(in.String())
-		default:
-			in.SkipRecursive()
-		}
-		in.WantComma()
-	}
-	in.Delim('}')
-	if isTopLevel {
-		in.Consumed()
-	}
-}
-func easyjson783c1624EncodeGithubComGobwasVk5(out *jwriter.Writer, in PostGeoPlace) {
-	out.RawByte('{')
-	first := true
-	_ = first
-	{
-		const prefix string = ",\"id\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Id))
-	}
-	{
-		const prefix string = ",\"title\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Title))
-	}
-	{
-		const prefix string = ",\"latitude\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Float64(float64(in.Latitude))
-	}
-	{
-		const prefix string = ",\"longitude\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Float64(float64(in.Longitude))
-	}
-	{
-		const prefix string = ",\"created\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Created))
-	}
-	{
-		const prefix string = ",\"icon\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Icon))
-	}
-	{
-		const prefix string = ",\"country\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Country))
-	}
-	{
-		const prefix string = ",\"city\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.City))
-	}
-	{
-		const prefix string = ",\"type\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Type))
-	}
-	{
-		const prefix string = ",\"group_id\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.GroupID))
-	}
-	{
-		const prefix string = ",\"group_photo\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.GroupPhoto))
-	}
-	{
-		const prefix string = ",\"checkins\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Checkins))
-	}
-	{
-		const prefix string = ",\"updated\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.Int(int(in.Updated))
-	}
-	{
-		const prefix string = ",\"address\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Address))
-	}
-	out.RawByte('}')
-}
-
-// MarshalJSON supports json.Marshaler interface
-func (v PostGeoPlace) MarshalJSON() ([]byte, error) {
-	w := jwriter.Writer{}
-	easyjson783c1624EncodeGithubComGobwasVk5(&w, v)
-	return w.Buffer.BuildBytes(), w.Error
-}
-
-// MarshalEasyJSON supports easyjson.Marshaler interface
-func (v PostGeoPlace) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson783c1624EncodeGithubComGobwasVk5(w, v)
-}
-
-// UnmarshalJSON supports json.Unmarshaler interface
-func (v *PostGeoPlace) UnmarshalJSON(data []byte) error {
-	r := jlexer.Lexer{Data: data}
-	easyjson783c1624DecodeGithubComGobwasVk5(&r, v)
-	return r.Error()
-}
-
-// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *PostGeoPlace) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson783c1624DecodeGithubComGobwasVk5(l, v)
-}
-func easyjson783c1624DecodeGithubComGobwasVk6(in *jlexer.Lexer, out *PostGeo) {
-	isTopLevel := in.IsStart()
-	if in.IsNull() {
-		if isTopLevel {
-			in.Consumed()
-		}
-		in.Skip()
-		return
-	}
-	in.Delim('{')
-	for !in.IsDelim('}') {
-		key := in.UnsafeString()
-		in.WantColon()
-		if in.IsNull() {
-			in.Skip()
-			in.WantComma()
-			continue
-		}
-		switch key {
-		case "type":
-			out.Type = string(in.String())
-		case "coordinates":
-			out.Coordinates = string(in.String())
-		case "place":
-			(out.Place).UnmarshalEasyJSON(in)
-		default:
-			in.SkipRecursive()
-		}
-		in.WantComma()
-	}
-	in.Delim('}')
-	if isTopLevel {
-		in.Consumed()
-	}
-}
-func easyjson783c1624EncodeGithubComGobwasVk6(out *jwriter.Writer, in PostGeo) {
-	out.RawByte('{')
-	first := true
-	_ = first
-	{
-		const prefix string = ",\"type\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Type))
-	}
-	{
-		const prefix string = ",\"coordinates\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Coordinates))
-	}
-	{
-		const prefix string = ",\"place\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		(in.Place).MarshalEasyJSON(out)
-	}
-	out.RawByte('}')
-}
-
-// MarshalJSON supports json.Marshaler interface
-func (v PostGeo) MarshalJSON() ([]byte, error) {
-	w := jwriter.Writer{}
-	easyjson783c1624EncodeGithubComGobwasVk6(&w, v)
-	return w.Buffer.BuildBytes(), w.Error
-}
-
-// MarshalEasyJSON supports easyjson.Marshaler interface
-func (v PostGeo) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson783c1624EncodeGithubComGobwasVk6(w, v)
-}
-
-// UnmarshalJSON supports json.Unmarshaler interface
-func (v *PostGeo) UnmarshalJSON(data []byte) error {
-	r := jlexer.Lexer{Data: data}
-	easyjson783c1624DecodeGithubComGobwasVk6(&r, v)
-	return r.Error()
-}
-
-// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *PostGeo) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson783c1624DecodeGithubComGobwasVk6(l, v)
-}
-func easyjson783c1624DecodeGithubComGobwasVk7(in *jlexer.Lexer, out *PostComments) {
+func easyjson783c1624DecodeGithubComGobwasVk5(in *jlexer.Lexer, out *PostComments) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -857,7 +535,7 @@ func easyjson783c1624DecodeGithubComGobwasVk7(in *jlexer.Lexer, out *PostComment
 		in.Consumed()
 	}
 }
-func easyjson783c1624EncodeGithubComGobwasVk7(out *jwriter.Writer, in PostComments) {
+func easyjson783c1624EncodeGithubComGobwasVk5(out *jwriter.Writer, in PostComments) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -897,27 +575,27 @@ func easyjson783c1624EncodeGithubComGobwasVk7(out *jwriter.Writer, in PostCommen
 // MarshalJSON supports json.Marshaler interface
 func (v PostComments) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson783c1624EncodeGithubComGobwasVk7(&w, v)
+	easyjson783c1624EncodeGithubComGobwasVk5(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v PostComments) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson783c1624EncodeGithubComGobwasVk7(w, v)
+	easyjson783c1624EncodeGithubComGobwasVk5(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *PostComments) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson783c1624DecodeGithubComGobwasVk7(&r, v)
+	easyjson783c1624DecodeGithubComGobwasVk5(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *PostComments) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson783c1624DecodeGithubComGobwasVk7(l, v)
+	easyjson783c1624DecodeGithubComGobwasVk5(l, v)
 }
-func easyjson783c1624DecodeGithubComGobwasVk8(in *jlexer.Lexer, out *PostAttachement) {
+func easyjson783c1624DecodeGithubComGobwasVk6(in *jlexer.Lexer, out *PostAttachement) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -938,6 +616,8 @@ func easyjson783c1624DecodeGithubComGobwasVk8(in *jlexer.Lexer, out *PostAttache
 		switch key {
 		case "type":
 			out.Type = string(in.String())
+		case "photo":
+			(out.Photo).UnmarshalEasyJSON(in)
 		default:
 			in.SkipRecursive()
 		}
@@ -948,7 +628,7 @@ func easyjson783c1624DecodeGithubComGobwasVk8(in *jlexer.Lexer, out *PostAttache
 		in.Consumed()
 	}
 }
-func easyjson783c1624EncodeGithubComGobwasVk8(out *jwriter.Writer, in PostAttachement) {
+func easyjson783c1624EncodeGithubComGobwasVk6(out *jwriter.Writer, in PostAttachement) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -962,33 +642,43 @@ func easyjson783c1624EncodeGithubComGobwasVk8(out *jwriter.Writer, in PostAttach
 		}
 		out.String(string(in.Type))
 	}
+	{
+		const prefix string = ",\"photo\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(in.Photo).MarshalEasyJSON(out)
+	}
 	out.RawByte('}')
 }
 
 // MarshalJSON supports json.Marshaler interface
 func (v PostAttachement) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson783c1624EncodeGithubComGobwasVk8(&w, v)
+	easyjson783c1624EncodeGithubComGobwasVk6(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v PostAttachement) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson783c1624EncodeGithubComGobwasVk8(w, v)
+	easyjson783c1624EncodeGithubComGobwasVk6(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *PostAttachement) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson783c1624DecodeGithubComGobwasVk8(&r, v)
+	easyjson783c1624DecodeGithubComGobwasVk6(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *PostAttachement) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson783c1624DecodeGithubComGobwasVk8(l, v)
+	easyjson783c1624DecodeGithubComGobwasVk6(l, v)
 }
-func easyjson783c1624DecodeGithubComGobwasVk9(in *jlexer.Lexer, out *Post) {
+func easyjson783c1624DecodeGithubComGobwasVk7(in *jlexer.Lexer, out *Post) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1057,7 +747,7 @@ func easyjson783c1624DecodeGithubComGobwasVk9(in *jlexer.Lexer, out *Post) {
 				in.Delim('[')
 				if out.Attachments == nil {
 					if !in.IsDelim(']') {
-						out.Attachments = make([]PostAttachement, 0, 4)
+						out.Attachments = make([]PostAttachement, 0, 1)
 					} else {
 						out.Attachments = []PostAttachement{}
 					}
@@ -1107,7 +797,7 @@ func easyjson783c1624DecodeGithubComGobwasVk9(in *jlexer.Lexer, out *Post) {
 		in.Consumed()
 	}
 }
-func easyjson783c1624EncodeGithubComGobwasVk9(out *jwriter.Writer, in Post) {
+func easyjson783c1624EncodeGithubComGobwasVk7(out *jwriter.Writer, in Post) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1379,23 +1069,23 @@ func easyjson783c1624EncodeGithubComGobwasVk9(out *jwriter.Writer, in Post) {
 // MarshalJSON supports json.Marshaler interface
 func (v Post) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson783c1624EncodeGithubComGobwasVk9(&w, v)
+	easyjson783c1624EncodeGithubComGobwasVk7(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v Post) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson783c1624EncodeGithubComGobwasVk9(w, v)
+	easyjson783c1624EncodeGithubComGobwasVk7(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *Post) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson783c1624DecodeGithubComGobwasVk9(&r, v)
+	easyjson783c1624DecodeGithubComGobwasVk7(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *Post) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson783c1624DecodeGithubComGobwasVk9(l, v)
+	easyjson783c1624DecodeGithubComGobwasVk7(l, v)
 }

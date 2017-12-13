@@ -31,7 +31,7 @@ type Post struct {
 	Views       PostViews         `json:"views"`
 	PostSource  PostSource        `json:"post_source"`
 	Attachments []PostAttachement `json:"attachments"`
-	Geo         PostGeo           `json:"geo"`
+	Geo         Geo               `json:"geo"`
 	CopyHistory []Post            `json:"copy_history"`
 }
 
@@ -59,32 +59,8 @@ type PostViews struct {
 
 type PostAttachement struct {
 	//TODO
-	Type string `json:"type"`
-}
-
-type PostGeo struct {
-	Type        string       `json:"type"`
-	Coordinates string       `json:"coordinates"`
-	Place       PostGeoPlace `json:"place"`
-}
-
-type PostGeoPlace struct {
-	Id        int     `json:"id"`
-	Title     string  `json:"title"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-	Created   int     `json:"created"`
-	Icon      string  `json:"icon"`
-	Country   string  `json:"country"`
-	City      string  `json:"city"`
-
-	// Checkin additional fields.
-	Type       int    `json:"type"`
-	GroupID    int    `json:"group_id"`
-	GroupPhoto string `json:"group_photo"`
-	Checkins   int    `json:"checkins"`
-	Updated    int    `json:"updated"`
-	Address    string `json:"address"`
+	Type  string `json:"type"`
+	Photo Photo  `json:"photo"`
 }
 
 type PostSource struct {

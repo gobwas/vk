@@ -8,10 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
-	"os/user"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,7 +17,7 @@ import (
 
 	"github.com/gobwas/vk"
 	vkcli "github.com/gobwas/vk/cli"
-	"github.com/gobwas/vk/internal/httputil"
+	"github.com/gobwas/vk/internal/download"
 	"github.com/gobwas/vk/internal/syncutil"
 	"github.com/mitchellh/cli"
 	"github.com/vbauerster/mpb"
@@ -55,24 +52,13 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 		"albums owner id (empty for your id)",
 	)
 	flag.StringVar(&c.Dest,
-		"dest", getDefaultDest("vkphoto"),
+		"dest", download.GetDefaultDest("vkphoto"),
 		"destination root dir for photos",
 	)
 	flag.IntVar(&c.Parallelism,
 		"parallelism", 32,
 		"number of parallel downloadings",
 	)
-}
-
-func getDefaultDest(suffix string) (path string) {
-	user, err := user.Current()
-	if err == nil {
-		path = user.HomeDir
-	}
-	if path == "" {
-		path = "/tmp"
-	}
-	return path + "/" + suffix
 }
 
 type Command struct {
@@ -192,7 +178,7 @@ func (c *Command) Run(args []string) int {
 			continue
 		}
 		// Prepare directory for this album.
-		if err := os.MkdirAll(getAlbumDir(dest, album), os.ModePerm); err != nil {
+		if err := os.MkdirAll(appendAlbumDir(dest, album), os.ModePerm); err != nil {
 			panic(err)
 		}
 
@@ -288,8 +274,8 @@ type PhotoFromAlbum struct {
 func processPhotoFromAlbum(ctx context.Context, wg *sync.WaitGroup, bars *sync.Map, dest string, work <-chan PhotoFromAlbum) {
 	defer wg.Done()
 	for pa := range work {
-		largest := getLargestSize(pa.Photo.Sizes)
-		if err := download(ctx, dest, pa.Photo, largest, pa.Album); err != nil {
+		largest := download.GetLargestSize(pa.Photo.Sizes)
+		if err := download.Photo(ctx, appendAlbumDir(dest, pa.Album), pa.Photo, largest); err != nil {
 			log.Printf(
 				"download %s (from %q album) error: %v",
 				largest.Src, pa.Album.Title, err,
@@ -300,42 +286,12 @@ func processPhotoFromAlbum(ctx context.Context, wg *sync.WaitGroup, bars *sync.M
 	}
 }
 
-func getAlbumDir(root string, album vk.PhotoAlbum) string {
+func appendAlbumDir(root string, album vk.PhotoAlbum) string {
 	albumID := album.Title
 	if albumID == "" {
 		albumID = strconv.Itoa(album.ID)
 	}
 	return filepath.Clean(fmt.Sprintf("%s/%s", root, albumID))
-}
-
-func download(ctx context.Context, dir string, photo vk.Photo, size vk.PhotoSize, album vk.PhotoAlbum) (err error) {
-	photoID := strconv.Itoa(photo.ID)
-	ext := path.Ext(size.Src)
-
-	filepath := filepath.Clean(fmt.Sprintf("%s/%s%s", getAlbumDir(dir, album), photoID, ext))
-
-	file, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	req, err := http.NewRequest("GET", size.Src, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if err := httputil.CheckResponseStatus(resp); err != nil {
-		return err
-	}
-
-	_, err = io.Copy(file, resp.Body)
-
-	return err
 }
 
 func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as []vk.PhotoAlbum, err error) {
@@ -355,22 +311,6 @@ func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as 
 		return nil, err
 	}
 	return albums.Items, nil
-}
-
-func getLargestSize(sizes []vk.PhotoSize) (max vk.PhotoSize) {
-	// Range from the end of sizes cause there is a nice chance that 'w' type
-	// is the last one.
-	for i := len(sizes) - 1; i >= 0; i-- {
-		size := sizes[i]
-		if size.Type == vk.SizeW {
-			// Largest possible size.
-			return size
-		}
-		if max.Type.Less(size.Type) {
-			max = size
-		}
-	}
-	return max
 }
 
 type ringLogger struct {
