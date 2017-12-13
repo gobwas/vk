@@ -30,6 +30,7 @@ type Config struct {
 	ClientID     string
 	ClientSecret string
 	Dest         string
+	All          bool
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
@@ -44,6 +45,10 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 	flag.StringVar(&c.Dest,
 		"dest", download.GetDefaultDest("vkmessages"),
 		"destination root dir for saved chats",
+	)
+	flag.BoolVar(&c.All,
+		"all", false,
+		"download all dialogs from current user",
 	)
 }
 
@@ -90,23 +95,28 @@ func (c *Command) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	users, err := getUsers(ctx, access, usersFromDialogs(ds))
+	users, err := getUsers(ctx, access, append([]int{access.UserID}, usersFromDialogs(ds)...))
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	me := users[0]
+	users = users[1:]
+
 	for _, user := range users {
-		action, err := vkcli.AskRune(ctx, fmt.Sprintf(
-			"save chat for %s %s (%s)? ",
-			user.LastName, user.FirstName, user.Domain,
-		))
-		if err != nil {
-			log.Fatal(err)
+		if !c.config.All {
+			action, err := vkcli.AskRune(ctx, fmt.Sprintf(
+				"save chat for %s %s (%s)? ",
+				user.LastName, user.FirstName, user.Domain,
+			))
+			if err != nil {
+				log.Fatal(err)
+			}
+			if action != 'y' {
+				continue
+			}
 		}
-		if action != 'y' {
-			continue
-		}
-		if err := c.saveChat(ctx, access, user); err != nil {
+		if err := c.saveChat(ctx, access, me, user); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -114,13 +124,21 @@ func (c *Command) Run(args []string) int {
 	return 0
 }
 
-func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, user vk.User) error {
+func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user vk.User) error {
+	type TemplateData struct {
+		Messages <-chan vk.Message
+		User     vk.User
+		Me       vk.User
+	}
 	userDir := appendUserDir(c.config.Dest, user)
 
 	var (
 		once     sync.Once
-		file     *os.File
-		bw       *bufio.Writer
+		raw      *os.File
+		rawBuf   *bufio.Writer
+		html     *os.File
+		htmlBuf  *bufio.Writer
+		messages chan vk.Message
 		progress *spinner.Spinner
 	)
 	init := func() (ok bool) {
@@ -130,21 +148,38 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, user vk.
 			if err != nil {
 				panic(err)
 			}
-			file, err = os.Create(filepath.Clean(userDir + "/history.json"))
+			raw, err = os.Create(filepath.Clean(userDir + "/raw.json"))
 			if err != nil {
 				panic(err)
 			}
+			rawBuf = bufio.NewWriter(raw)
+
+			html, err = os.Create(filepath.Clean(userDir + "/index.html"))
+			if err != nil {
+				panic(err)
+			}
+			htmlBuf = bufio.NewWriter(html)
+
+			messages = make(chan vk.Message, 10)
+			go func() {
+				t.Execute(htmlBuf, TemplateData{
+					Messages: messages,
+					User:     user,
+					Me:       me,
+				})
+			}()
 
 			fmt.Printf("\tsaving messages to '%s' ", userDir)
 			progress = spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 			progress.Start()
-
-			bw = bufio.NewWriter(file)
 		})
 		return
 	}
 
-	var list vk.Messages
+	var (
+		list vk.Messages
+		bts  []byte
+	)
 	it := vk.Iterator{
 		Method: "messages.getHistory",
 		Options: vk.QueryOptions(
@@ -155,6 +190,7 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, user vk.
 			vk.WithParam("photo_sizes", "1"), // Special sizes format.
 		),
 		Parse: func(p []byte) (int, error) {
+			bts = p
 			list = vk.Messages{} // Reset.
 			err := list.UnmarshalJSON(p)
 			return len(list.Items), err
@@ -163,14 +199,24 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, user vk.
 	for it.Next(ctx) {
 		if init() {
 			defer func() {
-				bw.Flush()
-				file.Close()
+				close(messages)
+
+				rawBuf.Flush()
+				raw.Close()
+
+				htmlBuf.Flush()
+				html.Close()
+
 				progress.Stop()
 				fmt.Printf("\n")
 			}()
 		}
 
+		rawBuf.Write(bts)
+		rawBuf.WriteByte('\n')
+
 		for _, message := range list.Items {
+			messages <- message
 			for _, attach := range message.Attachments {
 				if attach.Type != "photo" {
 					continue
@@ -181,12 +227,6 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, user vk.
 					log.Printf("download attachement photo %s error: %v", size.Src, err)
 				}
 			}
-			bts, err := message.MarshalJSON()
-			if err != nil {
-				log.Fatal(err)
-			}
-			bw.Write(bts)
-			bw.WriteByte('\n')
 		}
 	}
 	if err := it.Err(); err != nil {
