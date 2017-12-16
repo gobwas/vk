@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,11 +14,16 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/briandowns/spinner"
 	"github.com/gobwas/vk"
 	vkcli "github.com/gobwas/vk/cli"
 	"github.com/gobwas/vk/internal/download"
+	"github.com/gobwas/vk/internal/logutil"
 	"github.com/mitchellh/cli"
+	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/decor"
 )
 
 func CLI(ui cli.Ui) cli.CommandFactory {
@@ -31,6 +37,7 @@ type Config struct {
 	ClientSecret string
 	Dest         string
 	All          bool
+	Parallelism  int
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
@@ -43,12 +50,16 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 		"application secret",
 	)
 	flag.StringVar(&c.Dest,
-		"dest", download.GetDefaultDest("vkmessages"),
+		"dest", download.GetDefaultDest("messages"),
 		"destination root dir for saved chats",
 	)
 	flag.BoolVar(&c.All,
 		"all", false,
 		"download all dialogs from current user",
+	)
+	flag.IntVar(&c.Parallelism,
+		"parallelism", 16,
+		"number of simultaneous downloads",
 	)
 }
 
@@ -90,12 +101,14 @@ func (c *Command) Run(args []string) int {
 		return 1
 	}
 
-	ds, err := getDialogs(ctx, access)
+	lim := rate.NewLimiter(rate.Every(time.Second/3), 3)
+
+	ds, err := getDialogs(ctx, access, lim)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	users, err := getUsers(ctx, access, append([]int{access.UserID}, usersFromDialogs(ds)...))
+	users, err := getUsers(ctx, access, lim, append([]int{access.UserID}, usersFromDialogs(ds)...))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,6 +116,44 @@ func (c *Command) Run(args []string) int {
 	me := users[0]
 	users = users[1:]
 
+	var (
+		progress *mpb.Progress
+		bar      *mpb.Bar
+		sem      chan struct{}
+	)
+	if c.config.All {
+		sem = make(chan struct{}, c.config.Parallelism)
+
+		ringLogger := logutil.NewRingLogger(c.config.Parallelism)
+		log.SetOutput(ringLogger)
+		log.SetFlags(0)
+
+		progress = mpb.New(
+			mpb.Output(os.Stderr),
+			mpb.OutputInterceptors(
+				func(w io.Writer) {
+					w.Write([]byte{'\n'})
+				},
+				ringLogger.Interceptor(),
+			),
+		)
+		barTitle := "dialogs"
+		bar = progress.AddBar(int64(len(users)),
+			// Prepending decorators
+			mpb.PrependDecorators(
+				// StaticName decorator with minWidth and no extra config
+				// If you need to change name while rendering, use DynamicName
+				decor.StaticName(barTitle, len(barTitle), decor.DidentRight),
+			),
+			// Appending decorators
+			mpb.AppendDecorators(
+				// Percentage decorator with minWidth and no extra config
+				decor.Counters("%s/%s", 0, 0, 0),
+			),
+		)
+
+		fmt.Println()
+	}
 	for _, user := range users {
 		if !c.config.All {
 			action, err := vkcli.AskRune(ctx, fmt.Sprintf(
@@ -112,25 +163,62 @@ func (c *Command) Run(args []string) int {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if action != 'y' {
-				continue
+			if action == 'y' {
+				destDir := appendUserDir(c.config.Dest, user)
+
+				fmt.Printf("\tsaving messages to '%s' ", destDir)
+				s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+				s.Start()
+
+				err := c.saveChat(ctx, access, lim, destDir, me, user)
+				s.Stop()
+				if err != nil {
+					fmt.Printf("error: %v", err)
+				}
+				fmt.Print("\n")
 			}
+			continue
 		}
-		if err := c.saveChat(ctx, access, me, user); err != nil {
-			log.Fatal(err)
-		}
+
+		sem <- struct{}{}
+
+		destDir := appendUserDir(c.config.Dest, user)
+		user := user // For closure.
+		go func() {
+			defer func() {
+				bar.Increment()
+				<-sem
+			}()
+			if err := c.saveChat(ctx, access, lim, destDir, me, user); err != nil {
+				log.Printf(
+					"error saving messages from %s %s (%s): %v",
+					user.FirstName, user.LastName, user.Domain, err,
+				)
+			} else {
+				log.Printf(
+					"messages from %s %s (%s) are stored at '%s'\n",
+					user.FirstName, user.LastName, user.Domain, destDir,
+				)
+			}
+		}()
+	}
+	// Wait all workers are done.
+	for i := 0; i < c.config.Parallelism; i++ {
+		sem <- struct{}{}
+	}
+	if progress != nil {
+		progress.Stop()
 	}
 
 	return 0
 }
 
-func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user vk.User) error {
+func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, userDir string, me, user vk.User) error {
 	type TemplateData struct {
 		Messages <-chan vk.Message
 		User     vk.User
 		Me       vk.User
 	}
-	userDir := appendUserDir(c.config.Dest, user)
 
 	var (
 		once     sync.Once
@@ -139,7 +227,6 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user
 		html     *os.File
 		htmlBuf  *bufio.Writer
 		messages chan vk.Message
-		progress *spinner.Spinner
 	)
 	init := func() (ok bool) {
 		once.Do(func() {
@@ -168,10 +255,6 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user
 					Me:       me,
 				})
 			}()
-
-			fmt.Printf("\tsaving messages to '%s' ", userDir)
-			progress = spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-			progress.Start()
 		})
 		return
 	}
@@ -195,6 +278,7 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user
 			err := list.UnmarshalJSON(p)
 			return len(list.Items), err
 		},
+		Limiter: lim,
 	}
 	for it.Next(ctx) {
 		if init() {
@@ -206,9 +290,6 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user
 
 				htmlBuf.Flush()
 				html.Close()
-
-				progress.Stop()
-				fmt.Printf("\n")
 			}()
 		}
 
@@ -224,7 +305,10 @@ func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, me, user
 				size := download.GetLargestSize(attach.Photo.Sizes)
 				err := download.Photo(ctx, userDir, attach.Photo, size)
 				if err != nil {
-					log.Printf("download attachement photo %s error: %v", size.Src, err)
+					log.Printf(
+						"download %s %s (%s) attachement photo %s error: %v",
+						user.FirstName, user.LastName, user.Domain, size.Src, err,
+					)
 				}
 			}
 		}
@@ -259,13 +343,16 @@ func (c *Command) Help() string {
 	}, "\n")
 }
 
-func getUsers(ctx context.Context, access *vk.AccessToken, userIDs []int) ([]vk.User, error) {
+func getUsers(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, userIDs []int) ([]vk.User, error) {
 	users := make([]vk.User, 0, len(userIDs))
 
 	for i := 0; i < len(userIDs); i += 1000 {
 		sub := userIDs[i:]
 		if len(sub) > 1000 {
 			sub = sub[:1000]
+		}
+		if err := lim.Wait(ctx); err != nil {
+			return users, err
 		}
 		bts, err := vk.Request(ctx, "users.get",
 			vk.WithAccessToken(access),
@@ -293,7 +380,7 @@ func getUsers(ctx context.Context, access *vk.AccessToken, userIDs []int) ([]vk.
 	return users, nil
 }
 
-func getDialogs(ctx context.Context, access *vk.AccessToken) (ret []vk.Dialog, err error) {
+func getDialogs(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter) (ret []vk.Dialog, err error) {
 	var list vk.Dialogs
 	it := vk.Iterator{
 		Method: "messages.getDialogs",
@@ -306,6 +393,7 @@ func getDialogs(ctx context.Context, access *vk.AccessToken) (ret []vk.Dialog, e
 			err := list.UnmarshalJSON(p)
 			return len(list.Items), err
 		},
+		Limiter: lim,
 	}
 	for it.Next(ctx) {
 		for _, d := range list.Items {

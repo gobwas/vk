@@ -1,24 +1,21 @@
-package photo
+package photos
 
 import (
 	"bytes"
-	"container/ring"
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gobwas/vk"
 	vkcli "github.com/gobwas/vk/cli"
 	"github.com/gobwas/vk/internal/download"
-	"github.com/gobwas/vk/internal/syncutil"
+	"github.com/gobwas/vk/internal/logutil"
 	"github.com/mitchellh/cli"
 	"github.com/vbauerster/mpb"
 	"github.com/vbauerster/mpb/decor"
@@ -33,8 +30,8 @@ func CLI(ui cli.Ui) cli.CommandFactory {
 type Config struct {
 	ClientID     string
 	ClientSecret string
-	OwnerID      string
 	Dest         string
+	OwnerID      int
 	Parallelism  int
 }
 
@@ -47,17 +44,17 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 		"client_secret", "",
 		"application secret",
 	)
-	flag.StringVar(&c.OwnerID,
-		"owner_id", "",
+	flag.IntVar(&c.OwnerID,
+		"owner_id", 0,
 		"albums owner id (empty for your id)",
 	)
 	flag.StringVar(&c.Dest,
-		"dest", download.GetDefaultDest("vkphoto"),
+		"dest", download.GetDefaultDest("photos"),
 		"destination root dir for photos",
 	)
 	flag.IntVar(&c.Parallelism,
-		"parallelism", 32,
-		"number of parallel downloadings",
+		"parallelism", 64,
+		"number of parallel downloads",
 	)
 }
 
@@ -91,21 +88,21 @@ func (c *Command) Run(args []string) int {
 	app := vk.App{
 		ClientID:     c.config.ClientID,
 		ClientSecret: c.config.ClientSecret,
-		Scope:        vk.ScopePhotos,
+		Scope:        vk.ScopePhotos | vk.ScopeWall,
 	}
-	access, err := vkcli.Authorize(ctx, app)
+	access, err := vkcli.AuthorizeStandalone(ctx, app)
 	if err != nil {
 		c.errorf("authorize error: %v", err)
 		return 1
 	}
 
 	ownerID := c.config.OwnerID
-	if ownerID == "" {
-		ownerID = strconv.Itoa(access.UserID)
+	if ownerID == 0 {
+		ownerID = access.UserID
 	}
 
 	dest := c.config.Dest
-	dest += "/" + ownerID
+	dest += "/" + strconv.Itoa(ownerID)
 
 	albums, err := getAlbums(ctx, access, ownerID)
 	if err != nil {
@@ -120,7 +117,7 @@ func (c *Command) Run(args []string) int {
 
 	c.logf("ready to store photos at %s", dest)
 
-	ringLogger := newRingLogger(24)
+	ringLogger := logutil.NewRingLogger(24)
 	log.SetOutput(ringLogger)
 	log.SetFlags(0)
 
@@ -137,35 +134,13 @@ func (c *Command) Run(args []string) int {
 		go processPhotoFromAlbum(ctx, &wg, &bars, dest, work)
 	}
 
-	limiter := syncutil.NewLimiter(time.Second, 3)
-	defer limiter.Close()
-
-	photoGetter := &PhotoGetter{
-		Access:  access,
-		Limiter: limiter,
-	}
-
 	maxWidth := maxAlbumTitleWidth(albums)
 	for _, album := range albums {
 		var photos []vk.Photo
 		if album.ID == -4 {
-			// Tags album.
-			photos, err = photoGetter.GetUserPhotos(ctx, ownerID)
+			photos, err = getUserTaggedPhotos(ctx, access, ownerID)
 		} else {
-			var albumID string
-			switch album.ID {
-			case -1:
-				albumID = "wall"
-			case -2:
-				albumID = "saved"
-			case -3:
-				albumID = "profile"
-			default:
-				albumID = strconv.Itoa(album.ID)
-			}
-			// TODO: could put photos directly to a channel. Will work for large
-			// albums.
-			photos, err = photoGetter.GetAlbumPhotos(ctx, ownerID, albumID)
+			photos, err = getAlbumPhotos(ctx, access, ownerID, album.ID)
 		}
 		if err != nil {
 			log.Printf(
@@ -294,10 +269,10 @@ func appendAlbumDir(root string, album vk.PhotoAlbum) string {
 	return filepath.Clean(fmt.Sprintf("%s/%s", root, albumID))
 }
 
-func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as []vk.PhotoAlbum, err error) {
+func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID int) (as []vk.PhotoAlbum, err error) {
 	bts, err := vk.Request(ctx, "photos.getAlbums",
 		vk.WithAccessToken(access),
-		vk.WithParam("owner_id", ownerID),
+		vk.WithNumber("owner_id", ownerID),
 	)
 	if err != nil {
 		return nil, err
@@ -313,109 +288,60 @@ func getAlbums(ctx context.Context, access *vk.AccessToken, ownerID string) (as 
 	return albums.Items, nil
 }
 
-type ringLogger struct {
-	mu   sync.Mutex
-	ring *ring.Ring
-}
-
-func newRingLogger(n int) *ringLogger {
-	return &ringLogger{
-		ring: ring.New(n),
+func getUserTaggedPhotos(ctx context.Context, access *vk.AccessToken, userID int) (ps []vk.Photo, err error) {
+	var list vk.Photos
+	it := vk.Iterator{
+		Method: "photos.getUserPhotos",
+		Options: vk.QueryOptions(
+			vk.WithAccessToken(access),
+			vk.WithNumber("user_id", userID),
+			vk.WithNumber("sort", 1),        // Chronological order.
+			vk.WithNumber("photo_sizes", 1), // Special sizes format.
+			vk.WithNumber("count", 1000),
+		),
+		Parse: func(p []byte) (int, error) {
+			list = vk.Photos{} // Reset.
+			err := list.UnmarshalJSON(p)
+			return len(list.Items), err
+		},
 	}
-}
-
-func (r *ringLogger) Write(p []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	next := r.ring.Next()
-	next.Value = string(p)
-	r.ring = r.ring.Move(1)
-	return len(p), nil
-}
-
-func (r *ringLogger) Interceptor() func(io.Writer) {
-	return func(out io.Writer) {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.ring.Do(func(v interface{}) {
-			if v == nil {
-				return
-			}
-			out.Write([]byte(v.(string)))
-		})
+	for it.Next(ctx) {
+		ps = append(ps, list.Items...)
 	}
+	return ps, it.Err()
 }
 
-type PhotoGetter struct {
-	Limiter *syncutil.Limiter
-	Access  *vk.AccessToken
-}
-
-func (pg *PhotoGetter) GetUserPhotos(ctx context.Context, userID string) ([]vk.Photo, error) {
-	return pg.get(ctx, "photos.getUserPhotos",
-		vk.WithParam("user_id", userID),
-		vk.WithParam("sort", "1"), // Chronological order.
-	)
-}
-
-func (pg *PhotoGetter) GetAlbumPhotos(ctx context.Context, ownerID, albumID string) ([]vk.Photo, error) {
-	return pg.get(ctx, "photos.get",
-		vk.WithParam("owner_id", ownerID),
-		vk.WithParam("album_id", albumID),
-		vk.WithParam("rev", "0"),         // Chronological order.
-		vk.WithParam("photo_sizes", "1"), // Special sizes format.
-	)
-}
-
-func (pg *PhotoGetter) get(ctx context.Context, method string, queryOptions ...vk.QueryOption) (ret []vk.Photo, err error) {
-	const (
-		maxCount        = 1000
-		maxCountStr     = "1000"
-		defaultCoolDown = 50 * time.Millisecond
-	)
-	var (
-		cooldown = defaultCoolDown
-		offset   = 0
-	)
-	for {
-		var (
-			bts []byte
-			err error
-		)
-		pg.Limiter.Do(func() {
-			bts, err = vk.Request(ctx, method,
-				vk.WithOptions(queryOptions),
-				vk.WithAccessToken(pg.Access),
-				vk.WithNumber("offset", offset),
-				vk.WithParam("count", maxCountStr),
-				vk.WithParam("photo_sizes", "1"), // Special sizes format.
-			)
-		})
-		if err != nil {
-			return ret, err
-		}
-		bts, err = vk.StripResponse(bts)
-		if err != nil {
-			if vkErr, ok := err.(*vk.Error); ok && vkErr.Temporary() {
-				time.Sleep(cooldown)
-				cooldown *= 2
-				continue
-			}
-			return ret, err
-		}
-		cooldown = defaultCoolDown
-
-		var photos vk.Photos
-		if err := photos.UnmarshalJSON(bts); err != nil {
-			return ret, err
-		}
-
-		ret = append(ret, photos.Items...)
-		if photos.Count < maxCount {
-			// No need to repeat request.
-			break
-		}
-		offset += photos.Count
+func getAlbumPhotos(ctx context.Context, access *vk.AccessToken, ownerID, albumID int) (ps []vk.Photo, err error) {
+	var album string
+	switch albumID {
+	case -1:
+		album = "wall"
+	case -2:
+		album = "saved"
+	case -3:
+		album = "profile"
+	default:
+		album = strconv.Itoa(albumID)
 	}
-	return ret, nil
+	var list vk.Photos
+	it := vk.Iterator{
+		Method: "photos.get",
+		Options: vk.QueryOptions(
+			vk.WithAccessToken(access),
+			vk.WithNumber("owner_id", ownerID),
+			vk.WithParam("album_id", album),
+			vk.WithNumber("rev", 0),         // Chronological order.
+			vk.WithNumber("photo_sizes", 1), // Special sizes format.
+			vk.WithNumber("count", 1000),
+		),
+		Parse: func(p []byte) (int, error) {
+			list = vk.Photos{} // Reset.
+			err := list.UnmarshalJSON(p)
+			return len(list.Items), err
+		},
+	}
+	for it.Next(ctx) {
+		ps = append(ps, list.Items...)
+	}
+	return ps, it.Err()
 }

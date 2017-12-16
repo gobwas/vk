@@ -39,7 +39,7 @@ func GetDefaultDest(suffix string) (path string) {
 	if path == "" {
 		path = "/tmp"
 	}
-	return path + "/" + suffix
+	return path + "/vk/" + suffix
 }
 
 func Photo(ctx context.Context, destDir string, photo vk.Photo, size vk.PhotoSize) error {

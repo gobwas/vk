@@ -10,8 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/gobwas/vk/internal/httputil"
-	"github.com/gobwas/vk/internal/syncutil"
+)
+
+var (
+	DefaultRateInterval = time.Second / 3
+	DefaultRateBurst    = 3
 )
 
 type Authorizer interface {
@@ -133,10 +139,14 @@ type Iterator struct {
 	Options []QueryOption
 	Parse   func([]byte) (int, error)
 
-	limiter *syncutil.Limiter
-	offset  int
-	err     error
-	once    sync.Once
+	// Limiter is a requests rate limiter.
+	// If Limiter is nil, then the default one is created with DefaultRateInterval
+	// and DefaultRateBurst values.
+	Limiter *rate.Limiter
+
+	offset int
+	err    error
+	once   sync.Once
 }
 
 func (it *Iterator) Next(ctx context.Context) bool {
@@ -151,9 +161,10 @@ func (it *Iterator) Next(ctx context.Context) bool {
 		err error
 	)
 	for {
-		it.limiter.Do(func() {
-			n, err = it.fetch(ctx)
-		})
+		if err = it.Limiter.Wait(ctx); err != nil {
+			break
+		}
+		n, err = it.fetch(ctx)
 		if vkErr, ok := err.(*Error); ok && vkErr.Temporary() {
 			continue
 		}
@@ -171,13 +182,14 @@ func (it *Iterator) Err() error {
 
 func (it *Iterator) init() {
 	it.once.Do(func() {
-		it.limiter = syncutil.NewLimiter(time.Second, 3)
+		if it.Limiter != nil {
+			return
+		}
+		it.Limiter = rate.NewLimiter(
+			rate.Every(DefaultRateInterval),
+			DefaultRateBurst,
+		)
 	})
-}
-
-func (it *Iterator) Close() {
-	it.init()
-	it.limiter.Close()
 }
 
 func (it *Iterator) fetch(ctx context.Context) (int, error) {

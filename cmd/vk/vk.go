@@ -6,7 +6,7 @@ import (
 
 	"github.com/gobwas/vk/command/friends"
 	"github.com/gobwas/vk/command/messages"
-	"github.com/gobwas/vk/command/photo"
+	"github.com/gobwas/vk/command/photos"
 	"github.com/gobwas/vk/command/posts"
 	"github.com/gobwas/vk/command/stub"
 	"github.com/mitchellh/cli"
@@ -28,7 +28,7 @@ func main() {
 	c.Commands = map[string]cli.CommandFactory{
 		"stub":     stub.CLI(&ui),
 		"posts":    posts.CLI(&ui),
-		"photo":    photo.CLI(&ui),
+		"photos":   photos.CLI(&ui),
 		"friends":  friends.CLI(&ui),
 		"messages": messages.CLI(&ui),
 	}
