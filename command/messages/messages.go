@@ -38,6 +38,9 @@ type Config struct {
 	Dest         string
 	All          bool
 	Parallelism  int
+	Delete       bool
+	Save         bool
+	TokenURL     string
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
@@ -60,6 +63,18 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 	flag.IntVar(&c.Parallelism,
 		"parallelism", 16,
 		"number of simultaneous downloads",
+	)
+	flag.BoolVar(&c.Delete,
+		"delete", false,
+		"delete all dialogs",
+	)
+	flag.BoolVar(&c.Save,
+		"save", false,
+		"save all dialogs",
+	)
+	flag.StringVar(&c.TokenURL,
+		"token", "",
+		"token url copied from browser",
 	)
 }
 
@@ -90,12 +105,20 @@ func (c *Command) Run(args []string) int {
 
 	ctx := context.Background()
 
-	app := vk.App{
-		ClientID:     c.config.ClientID,
-		ClientSecret: c.config.ClientSecret,
-		Scope:        vk.ScopeMessages,
+	var (
+		access *vk.AccessToken
+		err    error
+	)
+	if u := c.config.TokenURL; u != "" {
+		access, err = vk.TokenFromURL(u)
+	} else {
+		app := vk.App{
+			ClientID:     c.config.ClientID,
+			ClientSecret: c.config.ClientSecret,
+			Scope:        vk.ScopeMessages,
+		}
+		access, err = vkcli.AuthorizeStandalone(ctx, app)
 	}
-	access, err := vkcli.AuthorizeStandalone(ctx, app)
 	if err != nil {
 		c.errorf("authorize error: %v", err)
 		return 1
@@ -115,6 +138,9 @@ func (c *Command) Run(args []string) int {
 
 	me := users[0]
 	users = users[1:]
+	if len(users) == 0 {
+		return 0
+	}
 
 	var (
 		progress *mpb.Progress
@@ -156,26 +182,52 @@ func (c *Command) Run(args []string) int {
 	}
 	for _, user := range users {
 		if !c.config.All {
-			action, err := vkcli.AskRune(ctx, fmt.Sprintf(
-				"save chat for %s %s (%s)? ",
-				user.LastName, user.FirstName, user.Domain,
-			))
-			if err != nil {
-				log.Fatal(err)
-			}
-			if action == 'y' {
-				destDir := appendUserDir(c.config.Dest, user)
-
-				fmt.Printf("\tsaving messages to '%s' ", destDir)
-				s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-				s.Start()
-
-				err := c.saveChat(ctx, access, lim, destDir, me, user)
-				s.Stop()
+			if c.config.Save {
+				action, err := vkcli.AskRune(ctx, fmt.Sprintf(
+					"save chat with %s %s (%s)? ",
+					user.LastName, user.FirstName, user.Domain,
+				))
 				if err != nil {
-					fmt.Printf("error: %v", err)
+					log.Fatal(err)
 				}
-				fmt.Print("\n")
+				if action == 'y' {
+					destDir := appendUserDir(c.config.Dest, user)
+
+					fmt.Printf("\tsaving messages at '%s' ", destDir)
+					s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+					s.Start()
+
+					err := c.saveChat(ctx, access, lim, destDir, me, user)
+					s.Stop()
+					if err != nil {
+						fmt.Printf("error: %v", err)
+					}
+					fmt.Print("\n")
+				}
+			}
+			if c.config.Delete {
+				action, err := vkcli.AskRune(ctx, fmt.Sprintf(
+					"delete chat with %s %s (%s)? ",
+					user.LastName, user.FirstName, user.Domain,
+				))
+				if err != nil {
+					log.Fatal(err)
+				}
+				if action == 'y' {
+					fmt.Printf(
+						"\tdeleting chat with %s %s (%s) ",
+						user.LastName, user.FirstName, user.Domain,
+					)
+					s := spinner.New(spinner.CharSets[42], 100*time.Millisecond)
+					s.Start()
+
+					err := c.deleteChat(ctx, access, lim, user)
+					s.Stop()
+					if err != nil {
+						fmt.Printf("error: %v", err)
+					}
+					fmt.Print("\n")
+				}
 			}
 			continue
 		}
@@ -189,16 +241,31 @@ func (c *Command) Run(args []string) int {
 				bar.Increment()
 				<-sem
 			}()
-			if err := c.saveChat(ctx, access, lim, destDir, me, user); err != nil {
-				log.Printf(
-					"error saving messages from %s %s (%s): %v",
-					user.FirstName, user.LastName, user.Domain, err,
-				)
-			} else {
-				log.Printf(
-					"messages from %s %s (%s) are stored at '%s'\n",
-					user.FirstName, user.LastName, user.Domain, destDir,
-				)
+			if c.config.Save {
+				if err := c.saveChat(ctx, access, lim, destDir, me, user); err != nil {
+					log.Printf(
+						"error saving messages from %s %s (%s): %v",
+						user.FirstName, user.LastName, user.Domain, err,
+					)
+				} else {
+					log.Printf(
+						"messages from %s %s (%s) are stored at '%s'",
+						user.FirstName, user.LastName, user.Domain, destDir,
+					)
+				}
+			}
+			if c.config.Delete {
+				if err := c.deleteChat(ctx, access, lim, user); err != nil {
+					log.Printf(
+						"delete messages from %s %s (%s) error: %v",
+						user.FirstName, user.LastName, user.Domain, err,
+					)
+				} else {
+					log.Printf(
+						"deleted messages from %s %s (%s)",
+						user.FirstName, user.LastName, user.Domain,
+					)
+				}
 			}
 		}()
 	}
@@ -211,6 +278,68 @@ func (c *Command) Run(args []string) int {
 	}
 
 	return 0
+}
+
+func (c *Command) deleteChat(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, user vk.User) error {
+	var list vk.Messages
+	it := vk.Iterator{
+		Method: "messages.getHistory",
+		Options: vk.QueryOptions(
+			vk.WithAccessToken(access),
+			vk.WithNumber("user_id", user.ID),
+			vk.WithNumber("count", 200),
+		),
+		Parse: func(p []byte) (int, error) {
+			list = vk.Messages{} // Reset.
+			err := list.UnmarshalJSON(p)
+			return len(list.Items), err
+		},
+		Limiter: lim,
+	}
+	ids := make([]int, 0, 200)
+	for it.Next(ctx) {
+		ids = ids[:0]
+		for _, message := range list.Items {
+			ids = append(ids, message.ID)
+		}
+	retry:
+		if err := lim.Wait(ctx); err != nil {
+			return err
+		}
+		bts, err := vk.Request(ctx, "messages.delete",
+			vk.WithAccessToken(access),
+			vk.WithNumbers("message_ids", ids...),
+		)
+		if err == nil {
+			_, err = vk.StripResponse(bts)
+		}
+		if vk.TemporaryError(err) {
+			goto retry
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if err := it.Err(); err != nil {
+		return err
+	}
+
+retryd:
+	if err := lim.Wait(ctx); err != nil {
+		return err
+	}
+	bts, err := vk.Request(ctx, "messages.deleteDialog",
+		vk.WithAccessToken(access),
+		vk.WithNumber("user_id", user.ID),
+		vk.WithNumber("count", 10000),
+	)
+	if err == nil {
+		_, err = vk.StripResponse(bts)
+	}
+	if vk.TemporaryError(err) {
+		goto retryd
+	}
+	return err
 }
 
 func (c *Command) saveChat(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, userDir string, me, user vk.User) error {

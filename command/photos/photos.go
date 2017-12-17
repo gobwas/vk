@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/time/rate"
+
 	"github.com/gobwas/vk"
 	vkcli "github.com/gobwas/vk/cli"
 	"github.com/gobwas/vk/internal/download"
@@ -33,6 +35,7 @@ type Config struct {
 	Dest         string
 	OwnerID      int
 	Parallelism  int
+	Delete       bool
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
@@ -55,6 +58,10 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 	flag.IntVar(&c.Parallelism,
 		"parallelism", 64,
 		"number of parallel downloads",
+	)
+	flag.BoolVar(&c.Delete,
+		"delete", false,
+		"just delete photos without store",
 	)
 }
 
@@ -115,7 +122,18 @@ func (c *Command) Run(args []string) int {
 		tagsAlbum,
 	)
 
-	c.logf("ready to store photos at %s", dest)
+	if c.config.Delete {
+		resp, err := vkcli.Ask(ctx, "are you sure to delete all photos from albums (type \"yes\")? ")
+		if err != nil {
+			log.Fatal(err)
+		}
+		if resp != "yes" {
+			return 0
+		}
+		c.logf("ready to delete photos from %d albums", len(albums))
+	} else {
+		c.logf("ready to store photos at %s", dest)
+	}
 
 	ringLogger := logutil.NewRingLogger(24)
 	log.SetOutput(ringLogger)
@@ -127,11 +145,20 @@ func (c *Command) Run(args []string) int {
 		mpb.OutputInterceptors(ringLogger.Interceptor()),
 	)
 
+	limit := rate.NewLimiter(
+		rate.Every(vk.DefaultRateInterval),
+		vk.DefaultRateBurst,
+	)
+
 	var wg sync.WaitGroup
 	work := make(chan PhotoFromAlbum, 100)
 	for i := 0; i < c.config.Parallelism; i++ {
 		wg.Add(1)
-		go processPhotoFromAlbum(ctx, &wg, &bars, dest, work)
+		if c.config.Delete {
+			go deletePhotoFromAlbum(ctx, access, limit, &wg, &bars, work)
+		} else {
+			go downloadPhotoFromAlbum(ctx, &wg, &bars, dest, work)
+		}
 	}
 
 	maxWidth := maxAlbumTitleWidth(albums)
@@ -152,9 +179,11 @@ func (c *Command) Run(args []string) int {
 		if len(photos) == 0 {
 			continue
 		}
-		// Prepare directory for this album.
-		if err := os.MkdirAll(appendAlbumDir(dest, album), os.ModePerm); err != nil {
-			panic(err)
+		if !c.config.Delete {
+			// Prepare directory for this album.
+			if err := os.MkdirAll(appendAlbumDir(dest, album), os.ModePerm); err != nil {
+				panic(err)
+			}
 		}
 
 		bar := progress.AddBar(int64(len(photos)),
@@ -181,6 +210,10 @@ func (c *Command) Run(args []string) int {
 	close(work)
 	wg.Wait()
 	progress.Stop()
+
+	if c.config.Delete {
+		deleteAlbums(ctx, access, limit, albums)
+	}
 
 	return 0
 }
@@ -246,7 +279,125 @@ type PhotoFromAlbum struct {
 	Album vk.PhotoAlbum
 }
 
-func processPhotoFromAlbum(ctx context.Context, wg *sync.WaitGroup, bars *sync.Map, dest string, work <-chan PhotoFromAlbum) {
+func deleteAlbums(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, albums []vk.PhotoAlbum) error {
+	for _, album := range albums {
+	retry:
+		if err := lim.Wait(ctx); err != nil {
+			return err
+		}
+		bts, err := vk.Request(ctx, "photos.deleteAlbum",
+			vk.WithAccessToken(access),
+			vk.WithNumber("album_id", album.ID),
+		)
+		if err == nil {
+			_, err = vk.StripResponse(bts)
+		}
+		if vk.TemporaryError(err) {
+			goto retry
+		}
+	}
+	return nil
+}
+
+func deletePhotoFromAlbum(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, wg *sync.WaitGroup, bars *sync.Map, work <-chan PhotoFromAlbum) {
+	defer wg.Done()
+	for pa := range work {
+		var err error
+		if pa.Album.ID == -4 {
+			err = removeTag(ctx, access, lim, pa.Photo)
+		} else {
+			err = deletePhoto(ctx, access, lim, pa.Photo)
+		}
+		if err != nil {
+			log.Printf(
+				"delete photo %d error: %v",
+				pa.Photo.ID, err,
+			)
+		}
+		bar, _ := bars.Load(pa.Album.ID)
+		bar.(*mpb.Bar).Increment()
+	}
+}
+
+func removeTag(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, photo vk.Photo) error {
+	tag, err := getTag(ctx, access, lim, photo)
+	if err != nil {
+		return err
+	}
+	return deleteTag(ctx, access, lim, photo, tag)
+}
+
+func deletePhoto(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, photo vk.Photo) error {
+retry:
+	if err := lim.Wait(ctx); err != nil {
+		return err
+	}
+	bts, err := vk.Request(ctx, "photos.delete",
+		vk.WithAccessToken(access),
+		vk.WithNumber("photo_id", photo.ID),
+	)
+	if err == nil {
+		_, err = vk.StripResponse(bts)
+	}
+	if vk.TemporaryError(err) {
+		goto retry
+	}
+	return err
+}
+
+func getTag(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, photo vk.Photo) (tag vk.Tag, err error) {
+retry:
+	if err := lim.Wait(ctx); err != nil {
+		return tag, err
+	}
+	bts, err := vk.Request(ctx, "photos.getTags",
+		vk.WithAccessToken(access),
+		vk.WithNumber("photo_id", photo.ID),
+		vk.WithNumber("owner_id", photo.OwnerID),
+	)
+	if err == nil {
+		bts, err = vk.StripResponse(bts)
+	}
+	if vk.TemporaryError(err) {
+		goto retry
+	}
+
+	// Need to hack up response.
+	bts = append([]byte(`{"items":`), bts...)
+	bts = append(bts, '}')
+
+	var tags vk.Tags
+	err = tags.UnmarshalJSON(bts)
+	for _, t := range tags.Items {
+		if t.UserID == access.UserID {
+			tag = t
+			break
+		}
+	}
+	return tag, err
+}
+
+func deleteTag(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, photo vk.Photo, tag vk.Tag) error {
+retry:
+	if err := lim.Wait(ctx); err != nil {
+		return err
+	}
+	bts, err := vk.Request(ctx, "photos.removeTag",
+		vk.WithAccessToken(access),
+		vk.WithNumber("owner_id", photo.OwnerID),
+		vk.WithNumber("photo_id", photo.ID),
+		vk.WithNumber("tag_id", tag.ID),
+	)
+	if err == nil {
+		_, err = vk.StripResponse(bts)
+	}
+	if vk.TemporaryError(err) {
+		goto retry
+	}
+	return err
+}
+
+func downloadPhotoFromAlbum(ctx context.Context, wg *sync.WaitGroup, bars *sync.Map, dest string, work <-chan PhotoFromAlbum) {
 	defer wg.Done()
 	for pa := range work {
 		largest := download.GetLargestSize(pa.Photo.Sizes)

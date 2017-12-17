@@ -35,6 +35,18 @@ type Message struct {
 	Important   int           `json:"important"`
 	Deleted     int           `json:"deleted"`
 	RandomId    int           `json:"random_id"`
+	// Chat fields.
+	ChatID      int    `json:"chat_id"`
+	ChatActive  []int  `json:"chat_active"`
+	UsersCount  int    `json:"users_count"`
+	AdminID     int    `json:"admin_id"`
+	Action      string `json:"action"`
+	ActionMid   int    `json:"action_mid"`
+	ActionEmail string `json:"action_email"`
+	ActionText  string `json:"action_text"`
+	Photo50     string `json:"photo_50"`
+	Photo100    string `json:"photo_100"`
+	Photo200    string `json:"photo_200"`
 }
 
 type Attachement struct {

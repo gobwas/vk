@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/time/rate"
+
 	"github.com/gobwas/vk"
 	vkcli "github.com/gobwas/vk/cli"
 	"github.com/mitchellh/cli"
@@ -72,7 +74,7 @@ func (c *Command) Run(args []string) int {
 	app := vk.App{
 		ClientID:     c.config.ClientID,
 		ClientSecret: c.config.ClientSecret,
-		Scope:        vk.ScopeWall,
+		Scope:        vk.ScopeFriends,
 	}
 	access, err := vkcli.AuthorizeStandalone(ctx, app)
 	if err != nil {
@@ -85,6 +87,7 @@ func (c *Command) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	lim := vk.DefaultLimiter()
 	for _, friend := range friends {
 		if !c.config.Force {
 			action, err := vkcli.AskRune(ctx,
@@ -100,10 +103,10 @@ func (c *Command) Run(args []string) int {
 				continue
 			}
 		}
-		continue
-		if err := deleteFriend(ctx, access, friend); err != nil {
+		if err := deleteFriend(ctx, access, lim, friend); err != nil {
 			log.Fatal(err)
 		}
+		log.Printf("goodbye %s %s (%s)", friend.FirstName, friend.LastName, friend.Domain)
 	}
 
 	return 0
@@ -140,13 +143,20 @@ func homePage(f vk.User) string {
 	return "https://vk.com/" + s
 }
 
-func deleteFriend(ctx context.Context, access *vk.AccessToken, friend vk.User) error {
+func deleteFriend(ctx context.Context, access *vk.AccessToken, lim *rate.Limiter, friend vk.User) error {
+retry:
+	if err := lim.Wait(ctx); err != nil {
+		return err
+	}
 	bts, err := vk.Request(ctx, "friends.delete",
 		vk.WithAccessToken(access),
 		vk.WithParam("user_id", strconv.Itoa(friend.ID)),
 	)
 	if err == nil {
 		_, err = vk.StripResponse(bts)
+	}
+	if vk.TemporaryError(err) {
+		goto retry
 	}
 	return err
 }

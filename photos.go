@@ -9,6 +9,24 @@ import (
 
 //go:generate easyjson -all
 
+type Tags struct {
+	Count int   `json:"count"`
+	Items []Tag `json:"items"`
+}
+
+type Tag struct {
+	ID         int     `json:"id"`
+	UserID     int     `json:"user_id"`
+	PlacerID   int     `json:"placer_id"`
+	TaggedName string  `json:"tagged_name"`
+	Date       int     `json:"date"`
+	X1         float64 `json:"x"`
+	Y1         float64 `json:"y"`
+	X2         float64 `json:"x2"`
+	Y2         float64 `json:"y2"`
+	Viewed     int     `json:"viewed"`
+}
+
 type PhotoAlbum struct {
 	ID             int      `json:"id"`
 	ThumbID        int      `json:"thumb_id"`

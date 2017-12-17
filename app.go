@@ -125,6 +125,18 @@ func CodeFromQuery(query url.Values) (string, error) {
 	return query.Get("code"), nil
 }
 
+func TokenFromURL(str string) (*AccessToken, error) {
+	u, err := url.Parse(str)
+	if err != nil {
+		return nil, err
+	}
+	params, err := url.ParseQuery(u.Fragment)
+	if err != nil {
+		return nil, err
+	}
+	return TokenFromQuery(params)
+}
+
 func TokenFromQuery(query url.Values) (*AccessToken, error) {
 	if err := RedirectQueryError(query); err != nil {
 		return nil, err

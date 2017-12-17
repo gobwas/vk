@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -58,16 +57,7 @@ func AuthorizeStandalone(ctx context.Context, app vk.App) (*vk.AccessToken, erro
 		return nil, err
 	}
 
-	u, err := url.Parse(str)
-	if err != nil {
-		return nil, err
-	}
-	params, err := url.ParseQuery(u.Fragment)
-	if err != nil {
-		return nil, err
-	}
-
-	return vk.TokenFromQuery(params)
+	return vk.TokenFromURL(str)
 }
 
 func redirectServer(ctx context.Context, redirect chan<- requestAndError) (uri string, err error) {

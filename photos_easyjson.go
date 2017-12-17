@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjson7ce75f0fDecodeGithubComGobwasVk(in *jlexer.Lexer, out *Photos) {
+func easyjson7ce75f0fDecodeGithubComGobwasVk(in *jlexer.Lexer, out *Tags) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -46,15 +46,15 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk(in *jlexer.Lexer, out *Photos) {
 				in.Delim('[')
 				if out.Items == nil {
 					if !in.IsDelim(']') {
-						out.Items = make([]Photo, 0, 1)
+						out.Items = make([]Tag, 0, 1)
 					} else {
-						out.Items = []Photo{}
+						out.Items = []Tag{}
 					}
 				} else {
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v1 Photo
+					var v1 Tag
 					(v1).UnmarshalEasyJSON(in)
 					out.Items = append(out.Items, v1)
 					in.WantComma()
@@ -71,7 +71,7 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk(in *jlexer.Lexer, out *Photos) {
 		in.Consumed()
 	}
 }
-func easyjson7ce75f0fEncodeGithubComGobwasVk(out *jwriter.Writer, in Photos) {
+func easyjson7ce75f0fEncodeGithubComGobwasVk(out *jwriter.Writer, in Tags) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -110,29 +110,323 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk(out *jwriter.Writer, in Photos) {
 }
 
 // MarshalJSON supports json.Marshaler interface
-func (v Photos) MarshalJSON() ([]byte, error) {
+func (v Tags) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
 	easyjson7ce75f0fEncodeGithubComGobwasVk(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v Photos) MarshalEasyJSON(w *jwriter.Writer) {
+func (v Tags) MarshalEasyJSON(w *jwriter.Writer) {
 	easyjson7ce75f0fEncodeGithubComGobwasVk(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
-func (v *Photos) UnmarshalJSON(data []byte) error {
+func (v *Tags) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
 	easyjson7ce75f0fDecodeGithubComGobwasVk(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *Photos) UnmarshalEasyJSON(l *jlexer.Lexer) {
+func (v *Tags) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson7ce75f0fDecodeGithubComGobwasVk(l, v)
 }
-func easyjson7ce75f0fDecodeGithubComGobwasVk1(in *jlexer.Lexer, out *PhotoSize) {
+func easyjson7ce75f0fDecodeGithubComGobwasVk1(in *jlexer.Lexer, out *Tag) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "id":
+			out.ID = int(in.Int())
+		case "user_id":
+			out.UserID = int(in.Int())
+		case "placer_id":
+			out.PlacerID = int(in.Int())
+		case "tagged_name":
+			out.TaggedName = string(in.String())
+		case "date":
+			out.Date = int(in.Int())
+		case "x":
+			out.X1 = float64(in.Float64())
+		case "y":
+			out.Y1 = float64(in.Float64())
+		case "x2":
+			out.X2 = float64(in.Float64())
+		case "y2":
+			out.Y2 = float64(in.Float64())
+		case "viewed":
+			out.Viewed = int(in.Int())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson7ce75f0fEncodeGithubComGobwasVk1(out *jwriter.Writer, in Tag) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.ID))
+	}
+	{
+		const prefix string = ",\"user_id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.UserID))
+	}
+	{
+		const prefix string = ",\"placer_id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.PlacerID))
+	}
+	{
+		const prefix string = ",\"tagged_name\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.TaggedName))
+	}
+	{
+		const prefix string = ",\"date\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Date))
+	}
+	{
+		const prefix string = ",\"x\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Float64(float64(in.X1))
+	}
+	{
+		const prefix string = ",\"y\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Float64(float64(in.Y1))
+	}
+	{
+		const prefix string = ",\"x2\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Float64(float64(in.X2))
+	}
+	{
+		const prefix string = ",\"y2\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Float64(float64(in.Y2))
+	}
+	{
+		const prefix string = ",\"viewed\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Viewed))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v Tag) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson7ce75f0fEncodeGithubComGobwasVk1(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v Tag) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson7ce75f0fEncodeGithubComGobwasVk1(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *Tag) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson7ce75f0fDecodeGithubComGobwasVk1(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *Tag) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson7ce75f0fDecodeGithubComGobwasVk1(l, v)
+}
+func easyjson7ce75f0fDecodeGithubComGobwasVk2(in *jlexer.Lexer, out *Photos) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeString()
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "count":
+			out.Count = int(in.Int())
+		case "items":
+			if in.IsNull() {
+				in.Skip()
+				out.Items = nil
+			} else {
+				in.Delim('[')
+				if out.Items == nil {
+					if !in.IsDelim(']') {
+						out.Items = make([]Photo, 0, 1)
+					} else {
+						out.Items = []Photo{}
+					}
+				} else {
+					out.Items = (out.Items)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v4 Photo
+					(v4).UnmarshalEasyJSON(in)
+					out.Items = append(out.Items, v4)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson7ce75f0fEncodeGithubComGobwasVk2(out *jwriter.Writer, in Photos) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"count\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.Count))
+	}
+	{
+		const prefix string = ",\"items\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		if in.Items == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v5, v6 := range in.Items {
+				if v5 > 0 {
+					out.RawByte(',')
+				}
+				(v6).MarshalEasyJSON(out)
+			}
+			out.RawByte(']')
+		}
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v Photos) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson7ce75f0fEncodeGithubComGobwasVk2(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v Photos) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson7ce75f0fEncodeGithubComGobwasVk2(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *Photos) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson7ce75f0fDecodeGithubComGobwasVk2(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *Photos) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson7ce75f0fDecodeGithubComGobwasVk2(l, v)
+}
+func easyjson7ce75f0fDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *PhotoSize) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -169,7 +463,7 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk1(in *jlexer.Lexer, out *PhotoSize) 
 		in.Consumed()
 	}
 }
-func easyjson7ce75f0fEncodeGithubComGobwasVk1(out *jwriter.Writer, in PhotoSize) {
+func easyjson7ce75f0fEncodeGithubComGobwasVk3(out *jwriter.Writer, in PhotoSize) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -219,27 +513,27 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk1(out *jwriter.Writer, in PhotoSize)
 // MarshalJSON supports json.Marshaler interface
 func (v PhotoSize) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson7ce75f0fEncodeGithubComGobwasVk1(&w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk3(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v PhotoSize) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson7ce75f0fEncodeGithubComGobwasVk1(w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk3(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *PhotoSize) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson7ce75f0fDecodeGithubComGobwasVk1(&r, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk3(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *PhotoSize) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson7ce75f0fDecodeGithubComGobwasVk1(l, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk3(l, v)
 }
-func easyjson7ce75f0fDecodeGithubComGobwasVk2(in *jlexer.Lexer, out *PhotoAlbums) {
+func easyjson7ce75f0fDecodeGithubComGobwasVk4(in *jlexer.Lexer, out *PhotoAlbums) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -276,9 +570,9 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk2(in *jlexer.Lexer, out *PhotoAlbums
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v4 PhotoAlbum
-					(v4).UnmarshalEasyJSON(in)
-					out.Items = append(out.Items, v4)
+					var v7 PhotoAlbum
+					(v7).UnmarshalEasyJSON(in)
+					out.Items = append(out.Items, v7)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -293,7 +587,7 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk2(in *jlexer.Lexer, out *PhotoAlbums
 		in.Consumed()
 	}
 }
-func easyjson7ce75f0fEncodeGithubComGobwasVk2(out *jwriter.Writer, in PhotoAlbums) {
+func easyjson7ce75f0fEncodeGithubComGobwasVk4(out *jwriter.Writer, in PhotoAlbums) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -319,11 +613,11 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk2(out *jwriter.Writer, in PhotoAlbum
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v5, v6 := range in.Items {
-				if v5 > 0 {
+			for v8, v9 := range in.Items {
+				if v8 > 0 {
 					out.RawByte(',')
 				}
-				(v6).MarshalEasyJSON(out)
+				(v9).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -334,27 +628,27 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk2(out *jwriter.Writer, in PhotoAlbum
 // MarshalJSON supports json.Marshaler interface
 func (v PhotoAlbums) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson7ce75f0fEncodeGithubComGobwasVk2(&w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk4(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v PhotoAlbums) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson7ce75f0fEncodeGithubComGobwasVk2(w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk4(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *PhotoAlbums) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson7ce75f0fDecodeGithubComGobwasVk2(&r, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk4(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *PhotoAlbums) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson7ce75f0fDecodeGithubComGobwasVk2(l, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk4(l, v)
 }
-func easyjson7ce75f0fDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *PhotoAlbum) {
+func easyjson7ce75f0fDecodeGithubComGobwasVk5(in *jlexer.Lexer, out *PhotoAlbum) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -409,9 +703,9 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *PhotoAlbum)
 					out.PrivacyView = (out.PrivacyView)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v7 string
-					v7 = string(in.String())
-					out.PrivacyView = append(out.PrivacyView, v7)
+					var v10 string
+					v10 = string(in.String())
+					out.PrivacyView = append(out.PrivacyView, v10)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -432,9 +726,9 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *PhotoAlbum)
 					out.PrivacyComment = (out.PrivacyComment)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v8 string
-					v8 = string(in.String())
-					out.PrivacyComment = append(out.PrivacyComment, v8)
+					var v11 string
+					v11 = string(in.String())
+					out.PrivacyComment = append(out.PrivacyComment, v11)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -449,7 +743,7 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *PhotoAlbum)
 		in.Consumed()
 	}
 }
-func easyjson7ce75f0fEncodeGithubComGobwasVk3(out *jwriter.Writer, in PhotoAlbum) {
+func easyjson7ce75f0fEncodeGithubComGobwasVk5(out *jwriter.Writer, in PhotoAlbum) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -565,11 +859,11 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk3(out *jwriter.Writer, in PhotoAlbum
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v9, v10 := range in.PrivacyView {
-				if v9 > 0 {
+			for v12, v13 := range in.PrivacyView {
+				if v12 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v10))
+				out.String(string(v13))
 			}
 			out.RawByte(']')
 		}
@@ -586,11 +880,11 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk3(out *jwriter.Writer, in PhotoAlbum
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v11, v12 := range in.PrivacyComment {
-				if v11 > 0 {
+			for v14, v15 := range in.PrivacyComment {
+				if v14 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v12))
+				out.String(string(v15))
 			}
 			out.RawByte(']')
 		}
@@ -601,27 +895,27 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk3(out *jwriter.Writer, in PhotoAlbum
 // MarshalJSON supports json.Marshaler interface
 func (v PhotoAlbum) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson7ce75f0fEncodeGithubComGobwasVk3(&w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk5(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v PhotoAlbum) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson7ce75f0fEncodeGithubComGobwasVk3(w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk5(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *PhotoAlbum) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson7ce75f0fDecodeGithubComGobwasVk3(&r, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk5(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *PhotoAlbum) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson7ce75f0fDecodeGithubComGobwasVk3(l, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk5(l, v)
 }
-func easyjson7ce75f0fDecodeGithubComGobwasVk4(in *jlexer.Lexer, out *Photo) {
+func easyjson7ce75f0fDecodeGithubComGobwasVk6(in *jlexer.Lexer, out *Photo) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -670,9 +964,9 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk4(in *jlexer.Lexer, out *Photo) {
 					out.Sizes = (out.Sizes)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v13 PhotoSize
-					(v13).UnmarshalEasyJSON(in)
-					out.Sizes = append(out.Sizes, v13)
+					var v16 PhotoSize
+					(v16).UnmarshalEasyJSON(in)
+					out.Sizes = append(out.Sizes, v16)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -687,7 +981,7 @@ func easyjson7ce75f0fDecodeGithubComGobwasVk4(in *jlexer.Lexer, out *Photo) {
 		in.Consumed()
 	}
 }
-func easyjson7ce75f0fEncodeGithubComGobwasVk4(out *jwriter.Writer, in Photo) {
+func easyjson7ce75f0fEncodeGithubComGobwasVk6(out *jwriter.Writer, in Photo) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -773,11 +1067,11 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk4(out *jwriter.Writer, in Photo) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v14, v15 := range in.Sizes {
-				if v14 > 0 {
+			for v17, v18 := range in.Sizes {
+				if v17 > 0 {
 					out.RawByte(',')
 				}
-				(v15).MarshalEasyJSON(out)
+				(v18).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -788,23 +1082,23 @@ func easyjson7ce75f0fEncodeGithubComGobwasVk4(out *jwriter.Writer, in Photo) {
 // MarshalJSON supports json.Marshaler interface
 func (v Photo) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson7ce75f0fEncodeGithubComGobwasVk4(&w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk6(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v Photo) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson7ce75f0fEncodeGithubComGobwasVk4(w, v)
+	easyjson7ce75f0fEncodeGithubComGobwasVk6(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *Photo) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson7ce75f0fDecodeGithubComGobwasVk4(&r, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk6(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *Photo) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson7ce75f0fDecodeGithubComGobwasVk4(l, v)
+	easyjson7ce75f0fDecodeGithubComGobwasVk6(l, v)
 }

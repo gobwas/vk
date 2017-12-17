@@ -165,7 +165,7 @@ func (it *Iterator) Next(ctx context.Context) bool {
 			break
 		}
 		n, err = it.fetch(ctx)
-		if vkErr, ok := err.(*Error); ok && vkErr.Temporary() {
+		if err != nil && TemporaryError(err) {
 			continue
 		}
 		break
@@ -174,6 +174,13 @@ func (it *Iterator) Next(ctx context.Context) bool {
 	it.err = err
 
 	return err == nil && n > 0
+}
+
+func TemporaryError(err error) bool {
+	if vkErr, ok := err.(*Error); ok {
+		return vkErr.Temporary()
+	}
+	return false
 }
 
 func (it *Iterator) Err() error {
@@ -185,11 +192,15 @@ func (it *Iterator) init() {
 		if it.Limiter != nil {
 			return
 		}
-		it.Limiter = rate.NewLimiter(
-			rate.Every(DefaultRateInterval),
-			DefaultRateBurst,
-		)
+		it.Limiter = DefaultLimiter()
 	})
+}
+
+func DefaultLimiter() *rate.Limiter {
+	return rate.NewLimiter(
+		rate.Every(DefaultRateInterval),
+		DefaultRateBurst,
+	)
 }
 
 func (it *Iterator) fetch(ctx context.Context) (int, error) {
