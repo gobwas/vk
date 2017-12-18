@@ -48,10 +48,6 @@ func easyjsonA0535929DecodeGithubComGobwasVk(in *jlexer.Lexer, out *GeoPlace) {
 			out.Created = int(in.Int())
 		case "icon":
 			out.Icon = string(in.String())
-		case "country":
-			out.Country = string(in.String())
-		case "city":
-			out.City = string(in.String())
 		case "type":
 			out.Type = int(in.Int())
 		case "group_id":
@@ -137,26 +133,6 @@ func easyjsonA0535929EncodeGithubComGobwasVk(out *jwriter.Writer, in GeoPlace) {
 			out.RawString(prefix)
 		}
 		out.String(string(in.Icon))
-	}
-	{
-		const prefix string = ",\"country\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.Country))
-	}
-	{
-		const prefix string = ",\"city\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		out.String(string(in.City))
 	}
 	{
 		const prefix string = ",\"type\":"

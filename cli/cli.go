@@ -75,6 +75,13 @@ func redirectServer(ctx context.Context, redirect chan<- requestAndError) (uri s
 	return "http://" + ln.Addr().String(), nil
 }
 
+func ResolveCaptcha(ctx context.Context, img string) (text string, err error) {
+	if err := Browse(ctx, img); err != nil {
+		return "", err
+	}
+	return Ask(ctx, "enter captcha text: ")
+}
+
 func Browse(ctx context.Context, u string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {

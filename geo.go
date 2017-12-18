@@ -15,8 +15,9 @@ type GeoPlace struct {
 	Longitude float64 `json:"longitude"`
 	Created   int     `json:"created"`
 	Icon      string  `json:"icon"`
-	Country   string  `json:"country"`
-	City      string  `json:"city"`
+	// NOTE: Country and City sometimes int =(
+	//Country   string  `json:"country"`
+	//City string `json:"city"`
 
 	// Checkin additional fields.
 	Type       int    `json:"type"`

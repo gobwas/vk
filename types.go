@@ -25,6 +25,10 @@ type Error struct {
 	Code   ErrorCode      `json:"error_code"`
 	Msg    string         `json:"error_msg"`
 	Params []RequestParam `json:"request_params"`
+
+	// Captha params.
+	CaptchaSID string `json:"captcha_sid"`
+	CaptchaImg string `json:"captcha_img"`
 }
 
 func (e Error) Error() string {

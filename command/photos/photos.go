@@ -95,7 +95,7 @@ func (c *Command) Run(args []string) int {
 	app := vk.App{
 		ClientID:     c.config.ClientID,
 		ClientSecret: c.config.ClientSecret,
-		Scope:        vk.ScopePhotos | vk.ScopeWall,
+		Scope:        vk.ScopePhotos | vk.ScopeWall | vk.ScopeFriends,
 	}
 	access, err := vkcli.AuthorizeStandalone(ctx, app)
 	if err != nil {
@@ -120,6 +120,7 @@ func (c *Command) Run(args []string) int {
 		savedAlbum,
 		profileAlbum,
 		tagsAlbum,
+		faveAlbum,
 	)
 
 	if c.config.Delete {
@@ -164,11 +165,15 @@ func (c *Command) Run(args []string) int {
 	maxWidth := maxAlbumTitleWidth(albums)
 	for _, album := range albums {
 		var photos []vk.Photo
-		if album.ID == -4 {
+		switch album.ID {
+		case -4:
 			photos, err = getUserTaggedPhotos(ctx, access, ownerID)
-		} else {
+		case -5:
+			photos, err = getUserFavePhotos(ctx, access, ownerID)
+		default:
 			photos, err = getAlbumPhotos(ctx, access, ownerID, album.ID)
 		}
+
 		if err != nil {
 			log.Printf(
 				"get photos for album %q (%d) error: %v",
@@ -262,6 +267,10 @@ var (
 		ID:    -4,
 		Title: "tags",
 	}
+	faveAlbum = vk.PhotoAlbum{
+		ID:    -5,
+		Title: "fave",
+	}
 )
 
 func maxAlbumTitleWidth(albums []vk.PhotoAlbum) int {
@@ -303,9 +312,12 @@ func deletePhotoFromAlbum(ctx context.Context, access *vk.AccessToken, lim *rate
 	defer wg.Done()
 	for pa := range work {
 		var err error
-		if pa.Album.ID == -4 {
+		switch pa.Album.ID {
+		case -4:
 			err = removeTag(ctx, access, lim, pa.Photo)
-		} else {
+		case -5:
+			// Do nothing for fave.
+		default:
 			err = deletePhoto(ctx, access, lim, pa.Photo)
 		}
 		if err != nil {
@@ -449,6 +461,27 @@ func getUserTaggedPhotos(ctx context.Context, access *vk.AccessToken, userID int
 			vk.WithNumber("sort", 1),        // Chronological order.
 			vk.WithNumber("photo_sizes", 1), // Special sizes format.
 			vk.WithNumber("count", 1000),
+		),
+		Parse: func(p []byte) (int, error) {
+			list = vk.Photos{} // Reset.
+			err := list.UnmarshalJSON(p)
+			return len(list.Items), err
+		},
+	}
+	for it.Next(ctx) {
+		ps = append(ps, list.Items...)
+	}
+	return ps, it.Err()
+}
+
+func getUserFavePhotos(ctx context.Context, access *vk.AccessToken, userID int) (ps []vk.Photo, err error) {
+	var list vk.Photos
+	it := vk.Iterator{
+		Method: "fave.getPhotos",
+		Options: vk.QueryOptions(
+			vk.WithAccessToken(access),
+			vk.WithNumber("photo_sizes", 1), // Special sizes format.
+			vk.WithNumber("count", 50),
 		),
 		Parse: func(p []byte) (int, error) {
 			list = vk.Photos{} // Reset.

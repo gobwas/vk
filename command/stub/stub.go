@@ -22,6 +22,7 @@ func CLI(ui cli.Ui) cli.CommandFactory {
 type Config struct {
 	ClientID     string
 	ClientSecret string
+	Token        string
 }
 
 func (c *Config) ExportTo(flag *flag.FlagSet) {
@@ -32,6 +33,10 @@ func (c *Config) ExportTo(flag *flag.FlagSet) {
 	flag.StringVar(&c.ClientSecret,
 		"client_secret", "",
 		"application secret",
+	)
+	flag.StringVar(&c.Token,
+		"token", "",
+		"token retreived before",
 	)
 }
 
@@ -62,12 +67,7 @@ func (c *Command) Run(args []string) int {
 
 	ctx := context.Background()
 
-	app := vk.App{
-		ClientID:     c.config.ClientID,
-		ClientSecret: c.config.ClientSecret,
-		Scope:        vk.ScopeWall,
-	}
-	access, err := vkcli.AuthorizeStandalone(ctx, app)
+	access, err := c.Authorize(ctx)
 	if err != nil {
 		c.errorf("authorize error: %v", err)
 		return 1
@@ -76,6 +76,18 @@ func (c *Command) Run(args []string) int {
 	panic(access.Token)
 
 	return 0
+}
+
+func (c *Command) Authorize(ctx context.Context) (*vk.AccessToken, error) {
+	if u := c.config.Token; u != "" {
+		return vk.TokenFromURL(u)
+	}
+	app := vk.App{
+		ClientID:     c.config.ClientID,
+		ClientSecret: c.config.ClientSecret,
+		Scope:        vk.ScopeMessages,
+	}
+	return vkcli.AuthorizeStandalone(ctx, app)
 }
 
 func (c *Command) errorf(f string, args ...interface{}) {

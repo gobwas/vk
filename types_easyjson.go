@@ -324,6 +324,10 @@ func easyjson6601e8cdDecodeGithubComGobwasVk3(in *jlexer.Lexer, out *Error) {
 				}
 				in.Delim(']')
 			}
+		case "captcha_sid":
+			out.CaptchaSID = string(in.String())
+		case "captcha_img":
+			out.CaptchaImg = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -378,6 +382,26 @@ func easyjson6601e8cdEncodeGithubComGobwasVk3(out *jwriter.Writer, in Error) {
 			}
 			out.RawByte(']')
 		}
+	}
+	{
+		const prefix string = ",\"captcha_sid\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.CaptchaSID))
+	}
+	{
+		const prefix string = ",\"captcha_img\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.CaptchaImg))
 	}
 	out.RawByte('}')
 }

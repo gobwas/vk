@@ -134,19 +134,61 @@ func (req *request) url() string {
 	return u.String()
 }
 
+type Caller struct {
+	Method         string
+	Options        []QueryOption
+	Limiter        *rate.Limiter
+	ResolveCaptcha func(ctx context.Context, img string) (text string, err error)
+
+	runtime []QueryOption
+}
+
+func (c *Caller) Call(ctx context.Context, opts ...QueryOption) ([]byte, error) {
+retry:
+	if lim := c.Limiter; lim != nil {
+		if err := lim.Wait(ctx); err != nil {
+			return nil, err
+		}
+	}
+	bts, err := Request(ctx, c.Method,
+		WithOptions(c.Options),
+		WithOptions(c.runtime),
+		WithOptions(opts),
+	)
+	if err == nil {
+		bts, err = StripResponse(bts)
+	}
+	if c.Limiter != nil && TemporaryError(err) {
+		goto retry
+	}
+	if captcha := c.ResolveCaptcha; captcha != nil {
+		sid, img, ok := CaptchaError(err)
+		if ok {
+			text, rerr := c.ResolveCaptcha(ctx, img)
+			if rerr == nil {
+				c.runtime = append(c.runtime,
+					WithParam("captcha_sid", sid),
+					WithParam("captcha_key", text),
+				)
+				goto retry
+			}
+		}
+	}
+	return bts, err
+}
+
 type Iterator struct {
+	// Caller fields
 	Method  string
 	Options []QueryOption
-	Parse   func([]byte) (int, error)
-
-	// Limiter is a requests rate limiter.
-	// If Limiter is nil, then the default one is created with DefaultRateInterval
-	// and DefaultRateBurst values.
 	Limiter *rate.Limiter
 
+	Parse func([]byte) (int, error)
+
+	once   sync.Once
+	caller Caller
 	offset int
 	err    error
-	once   sync.Once
 }
 
 func (it *Iterator) Next(ctx context.Context) bool {
@@ -156,31 +198,25 @@ func (it *Iterator) Next(ctx context.Context) bool {
 
 	it.init()
 
-	var (
-		n   int
-		err error
+	bts, err := it.caller.Call(ctx,
+		WithNumber("offset", it.offset),
 	)
-	for {
-		if err = it.Limiter.Wait(ctx); err != nil {
-			break
-		}
-		n, err = it.fetch(ctx)
-		if err != nil && TemporaryError(err) {
-			continue
-		}
-		break
+	if err != nil {
+		it.err = err
+		return false
 	}
 
-	it.err = err
-
-	return err == nil && n > 0
-}
-
-func TemporaryError(err error) bool {
-	if vkErr, ok := err.(*Error); ok {
-		return vkErr.Temporary()
+	n, err := it.Parse(bts)
+	if err != nil {
+		it.err = err
+		return false
 	}
-	return false
+	if n == 0 {
+		return false
+	}
+	it.offset += n
+
+	return true
 }
 
 func (it *Iterator) Err() error {
@@ -189,10 +225,14 @@ func (it *Iterator) Err() error {
 
 func (it *Iterator) init() {
 	it.once.Do(func() {
-		if it.Limiter != nil {
-			return
+		if it.Limiter == nil {
+			it.Limiter = DefaultLimiter()
 		}
-		it.Limiter = DefaultLimiter()
+		it.caller = Caller{
+			Method:  it.Method,
+			Options: it.Options,
+			Limiter: it.Limiter,
+		}
 	})
 }
 
@@ -203,24 +243,16 @@ func DefaultLimiter() *rate.Limiter {
 	)
 }
 
-func (it *Iterator) fetch(ctx context.Context) (int, error) {
-	bts, err := Request(ctx, it.Method,
-		WithOptions(it.Options),
-		WithNumber("offset", it.offset),
-	)
-	if err != nil {
-		return 0, err
+func TemporaryError(err error) bool {
+	if vkErr, ok := err.(*Error); ok {
+		return vkErr.Temporary()
 	}
-	bts, err = StripResponse(bts)
-	if err != nil {
-		return 0, err
-	}
-	n, err := it.Parse(bts)
-	if err != nil {
-		return 0, err
-	}
+	return false
+}
 
-	it.offset += n
-
-	return n, nil
+func CaptchaError(err error) (sid, img string, ok bool) {
+	if vkErr, ok := err.(*Error); ok {
+		return vkErr.CaptchaSID, vkErr.CaptchaImg, vkErr.CaptchaSID != ""
+	}
+	return "", "", false
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gobwas/vk/command/fave"
 	"github.com/gobwas/vk/command/friends"
 	"github.com/gobwas/vk/command/messages"
 	"github.com/gobwas/vk/command/photos"
@@ -31,6 +32,7 @@ func main() {
 		"photos":   photos.CLI(&ui),
 		"friends":  friends.CLI(&ui),
 		"messages": messages.CLI(&ui),
+		"fave":     fave.CLI(&ui),
 	}
 
 	exitStatus, err := c.Run()

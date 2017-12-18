@@ -223,6 +223,49 @@ func easyjson66c1e240DecodeGithubComGobwasVk1(in *jlexer.Lexer, out *Message) {
 			out.Deleted = int(in.Int())
 		case "random_id":
 			out.RandomId = int(in.Int())
+		case "chat_id":
+			out.ChatID = int(in.Int())
+		case "chat_active":
+			if in.IsNull() {
+				in.Skip()
+				out.ChatActive = nil
+			} else {
+				in.Delim('[')
+				if out.ChatActive == nil {
+					if !in.IsDelim(']') {
+						out.ChatActive = make([]int, 0, 8)
+					} else {
+						out.ChatActive = []int{}
+					}
+				} else {
+					out.ChatActive = (out.ChatActive)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v6 int
+					v6 = int(in.Int())
+					out.ChatActive = append(out.ChatActive, v6)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		case "users_count":
+			out.UsersCount = int(in.Int())
+		case "admin_id":
+			out.AdminID = int(in.Int())
+		case "action":
+			out.Action = string(in.String())
+		case "action_mid":
+			out.ActionMid = int(in.Int())
+		case "action_email":
+			out.ActionEmail = string(in.String())
+		case "action_text":
+			out.ActionText = string(in.String())
+		case "photo_50":
+			out.Photo50 = string(in.String())
+		case "photo_100":
+			out.Photo100 = string(in.String())
+		case "photo_200":
+			out.Photo200 = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -339,11 +382,11 @@ func easyjson66c1e240EncodeGithubComGobwasVk1(out *jwriter.Writer, in Message) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v6, v7 := range in.Attachments {
-				if v6 > 0 {
+			for v7, v8 := range in.Attachments {
+				if v7 > 0 {
 					out.RawByte(',')
 				}
-				(v7).MarshalEasyJSON(out)
+				(v8).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -360,11 +403,11 @@ func easyjson66c1e240EncodeGithubComGobwasVk1(out *jwriter.Writer, in Message) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v8, v9 := range in.FwdMessages {
-				if v8 > 0 {
+			for v9, v10 := range in.FwdMessages {
+				if v9 > 0 {
 					out.RawByte(',')
 				}
-				(v9).MarshalEasyJSON(out)
+				(v10).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -408,6 +451,127 @@ func easyjson66c1e240EncodeGithubComGobwasVk1(out *jwriter.Writer, in Message) {
 			out.RawString(prefix)
 		}
 		out.Int(int(in.RandomId))
+	}
+	{
+		const prefix string = ",\"chat_id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.ChatID))
+	}
+	{
+		const prefix string = ",\"chat_active\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		if in.ChatActive == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v11, v12 := range in.ChatActive {
+				if v11 > 0 {
+					out.RawByte(',')
+				}
+				out.Int(int(v12))
+			}
+			out.RawByte(']')
+		}
+	}
+	{
+		const prefix string = ",\"users_count\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.UsersCount))
+	}
+	{
+		const prefix string = ",\"admin_id\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.AdminID))
+	}
+	{
+		const prefix string = ",\"action\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Action))
+	}
+	{
+		const prefix string = ",\"action_mid\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.Int(int(in.ActionMid))
+	}
+	{
+		const prefix string = ",\"action_email\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.ActionEmail))
+	}
+	{
+		const prefix string = ",\"action_text\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.ActionText))
+	}
+	{
+		const prefix string = ",\"photo_50\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Photo50))
+	}
+	{
+		const prefix string = ",\"photo_100\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Photo100))
+	}
+	{
+		const prefix string = ",\"photo_200\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		out.String(string(in.Photo200))
 	}
 	out.RawByte('}')
 }
@@ -472,9 +636,9 @@ func easyjson66c1e240DecodeGithubComGobwasVk2(in *jlexer.Lexer, out *Dialogs) {
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v10 Dialog
-					(v10).UnmarshalEasyJSON(in)
-					out.Items = append(out.Items, v10)
+					var v13 Dialog
+					(v13).UnmarshalEasyJSON(in)
+					out.Items = append(out.Items, v13)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -515,11 +679,11 @@ func easyjson66c1e240EncodeGithubComGobwasVk2(out *jwriter.Writer, in Dialogs) {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v11, v12 := range in.Items {
-				if v11 > 0 {
+			for v14, v15 := range in.Items {
+				if v14 > 0 {
 					out.RawByte(',')
 				}
-				(v12).MarshalEasyJSON(out)
+				(v15).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
